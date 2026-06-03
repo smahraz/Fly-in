@@ -94,7 +94,8 @@ class Zone:
     ) -> "Zone":
         inline_metadata: dict[str, str] = {}
         match_ = re.fullmatch(
-            r"[a-z_]+\s*:\s*(\w+)\s+(\d+)\s+(\d+)(\s+(\[.*\]))?", line
+            r"[a-z_]+\s*:\s*(\w+)\s+([+-]?\d+)\s+([+-]?\d+)(\s+(\[.*\]))?",
+            line
         )
         if not match_:
             raise raise_error("broken zone definition")
@@ -188,7 +189,7 @@ class DataParser:
     def _nb_drones(self, line: tuple[int, str]) -> int:
         if not re.match(r"^nb_drones\s*:", line[1]):
             raise self._raise_error(0, "missing first key `nb_drones`")
-        match_ = re.fullmatch(r"nb_drones\s*:\s*[+-]?(\d+)", line[1])
+        match_ = re.fullmatch(r"nb_drones\s*:\s*([+-]?\d+)", line[1])
         if match_ is None:
             raise self._raise_error(line[0], "Wrong format for `nb_drones`")
         number = int(match_.group(1))
@@ -212,7 +213,12 @@ if __name__ == "__main__":
     with open(PATH, "r") as file:
         metadata = file.read()
 
-    d = DataParser(metadata, PATH)
+    try:
+
+        d = DataParser(metadata, PATH)
+    except ParseError as e:
+        print(e)
+        exit()
     for z in d.zones.values():
         print(z)
         print(z.connections)
