@@ -131,7 +131,7 @@ class DataParser:
             raise ParseError(file_path, 0, "file is empty of date")
         self.number_of_drones = self._nb_drones(self.lines[0])
         self.lines = self.lines[1:]
-        self.zone = self._extract_zones_conection()
+        self._extract_zones_and_conections()
 
     def _create_connection(
         self, line_num: int, line: str, connections: set[tuple[str, str]]
@@ -168,19 +168,21 @@ class DataParser:
         self.zones[zone.name] = zone
         coordinate.add((zone.x, zone.y))
 
-    def _extract_zones_conection(self) -> dict[str, Zone]:
+    def _extract_zones_and_conections(self) -> dict[str, Zone]:
+        # these two `sets` below, is only for caching
         coordinate: set[tuple[int, int]] = set()
         connections: set[tuple[str, str]] = set()
+
         for line_num, line in self.lines:
-            if re.fullmatch(r"^(start_hub|end_hub|hub)\s*:.+", line):
+            if re.match(r"^(start_hub|end_hub|hub)\s*:", line):
                 self._add_zone(line_num, line, coordinate)
             elif re.fullmatch(r"^connection\s*:.+", line):
                 self._create_connection(line_num, line, connections)
             elif re.fullmatch(r"^nb_drones\s*:.+", line):
                 raise self._raise_error(line_num, "re-assign `nb_drones`")
-            elif re.match(r"^[\w]+\s*:.+", line):
+            elif re.match(r"^[\w\s]+\s*:.+", line):
                 raise self._raise_error(
-                    line_num, f"wrong keyword `{line.split(':')[0].strip()}`"
+                    line_num, f"Unknown keyword `{line.split(':')[0].strip()}`"
                 )
             else:
                 raise self._raise_error(line_num, "broken line")
@@ -188,13 +190,16 @@ class DataParser:
 
     def _nb_drones(self, line: tuple[int, str]) -> int:
         if not re.match(r"^nb_drones\s*:", line[1]):
-            raise self._raise_error(0, "missing first key `nb_drones`")
+            raise self._raise_error(0, "missing `nb_drones` as the first key")
         match_ = re.fullmatch(r"nb_drones\s*:\s*([+-]?\d+)", line[1])
         if match_ is None:
-            raise self._raise_error(line[0], "Wrong format for `nb_drones`")
+            raise self._raise_error(
+                line[0],
+                "Value of `nb_drones` should be a positive number"
+            )
         number = int(match_.group(1))
         if number <= 0:
-            raise self._raise_error(line[0], "`nb_drones` <= 0")
+            raise self._raise_error(line[0], "Assert that `nb_drones` > 0")
         return number
 
     def _sanitize_lines(self, lines: list[str]) -> None:
