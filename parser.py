@@ -1,5 +1,5 @@
 import re
-from typing import Callable
+from typing import Any, Callable
 
 
 class ParseError(Exception):
@@ -44,25 +44,16 @@ class Connection:
     def from_metadata(
         line: str, raise_error: Callable[[str], ParseError]
     ) -> "Connection":
-        match_ = re.fullmatch(
-            r"connection\s*:\s*(\w+)-(\w+)(\s+(\[.*\]))?",
-            line
-        )
+        match_ = re.fullmatch(r"connection\s*:\s*(\w+)-(\w+)(\s+(\[.*\]))?", line)
         if not match_:
             raise raise_error("broken connection definition")
 
         inline_metadata: dict[str, str] = {}
         if match_.group(4):
-            inline_metadata = extract_inline_metadata(
-                    match_.group(4),
-                    raise_error
-            )
+            inline_metadata = extract_inline_metadata(match_.group(4), raise_error)
         if match_.group(1) == match_.group(2):
             raise raise_error("zone connect to itself")
-        return Connection(
-            (match_.group(1), match_.group(2)),
-            **inline_metadata
-        )
+        return Connection((match_.group(1), match_.group(2)), **inline_metadata)
 
     def to_tuple(self) -> tuple[str, str]:
         zones: list[str] = list(self.zones)
@@ -76,7 +67,7 @@ class Connection:
 class Zone:
     connections: list[Connection]
 
-    def __init__(self, name: str, x: int, y: int, **metadata: str) -> None:
+    def __init__(self, name: str, x: int, y: int, color: str = "", zone: str = "normal", max_drones: int = 1) -> None:
         self.name = name
 
         self.x = x
@@ -87,36 +78,124 @@ class Zone:
     def __str__(self) -> str:
         return f"Zone({self.name}: {self.x},{self.y})"
 
-    @staticmethod
-    def from_metadata(
-        line: str,
-        raise_error: Callable[[str], ParseError]
-    ) -> "Zone":
-        inline_metadata: dict[str, str] = {}
-        match_ = re.fullmatch(
-            r"[a-z_]+\s*:\s*(\w+)\s+([+-]?\d+)\s+([+-]?\d+)(\s+(\[.*\]))?",
-            line
-        )
-        if not match_:
-            raise raise_error("broken zone definition")
-        if match_.group(5):
-            inline_metadata = extract_inline_metadata(
-                match_.group(5),
-                raise_error
-            )
-        inline_metadata["-type"] = line.split(":")[0].strip()
-        return Zone(
-            match_.group(1),
-            int(match_.group(2)),
-            int(match_.group(3)),
-            **inline_metadata,
-        )
-
     def add_connection(self, connection: Connection) -> None:
         self.connections.append(connection)
 
 
 class DataParser:
+
+    class ZoneParser:
+        coordinate: set[tuple[int, int]]
+        start_hub: Zone | None
+        end_hub: Zone | None
+
+        _created_zones: set[str]
+
+        ALLOWED_METADATA_KEYS = {"zone", "color", "max_drones"}
+        ZONE_TYPE = {"normal", "blocked", "restricted", "priority"}
+
+        def __init__(self):
+            self.coordinate = set()
+            self.start_hub = None
+            self.end_hub = None
+            self._created_zones = set()
+
+        def extract(
+            self, line_num: int, line: str
+        ) -> Zone:
+            zone_str, *metadata = line.split("[")
+            params = [ln for ln in zone_str.split() if ln]
+
+            hub_type = self._check_hub_type(params[0], line_num)
+
+            try:
+                params = params[params.index(":") + 1:]
+            except Exception:
+                params = params[1:]
+
+            self._check_params(params, line_num)
+            z_name: str = params[0]
+            x: int = int(params[1])
+            y: int = int(params[2])
+            assert z_name not in self._created_zones
+            assert (x, y) not in self.coordinate
+            extracted_metadata = self._metadata("[".join(["",] + metadata), line_num)
+
+            self._created_zones.add(z_name)
+            self.coordinate.add((x, y))
+
+            zone = Zone(
+                z_name,
+                x,
+                y,
+                **extracted_metadata
+            )
+            match hub_type:
+                case "start_hub":
+                    self.start_hub = zone
+                case "end_hub":
+                    self.end_hub = zone
+            return zone
+
+        @staticmethod
+        def _metadata(metadata: str, line_num: int) -> dict[str, Any]:
+            data: dict[str, Any] = {}
+            assert metadata.startswith("[") and metadata.endswith("]")
+            metadata = metadata[1:-1]
+            assert metadata.count("[") == metadata.count("]") == 0
+            metadata = metadata.strip()
+            metadata = re.sub(r"([^\s])\s*=\s*([^\s])", r"\1=\2", metadata)
+            metadata = re.sub(r"\s{2,}", " ", metadata)
+
+            for entry in metadata.split():
+                equal_sign = entry.count("=")
+                if equal_sign == 0 or (equal_sign == 1 and entry.endswith("=")):
+                    raise ParseError("", line_num, "(metadata) forgot to assign a value")
+                if equal_sign > 1:
+                    raise ParseError("", line_num, "(metadata) too many equal signs '='")
+                value: Any
+                key, value = entry.split("=")
+
+                if key in data:
+                    raise ParseError("", line_num, f"(metadata) re-assign '{key}'")
+                # Unknown metadata
+                assert key in DataParser.ZoneParser.ALLOWED_METADATA_KEYS
+
+                match key:
+                    case "zone":
+                        assert value in DataParser.ZoneParser.ZONE_TYPE
+                    case "max_drones":
+                        try:
+                            value = int(value)
+                            assert value > 0
+                        except ValueError:
+                            raise ValueError("")
+                    case "color":
+                        pass
+                data[key] = value
+            return data
+
+        def _check_hub_type(self, zone_type: str, line_num: int) -> str:
+            if zone_type.startswith("start_hub"):
+                if self.start_hub is not None:
+                    raise ParseError("", line_num, "`start_hub` already exists")
+                return "start_hub"
+            if zone_type.startswith("end_hub"):
+                if self.end_hub is not None:
+                    raise ParseError("", line_num, "`end_hub` already exists")
+                return "end_hub"
+            return "hub"
+
+        @staticmethod
+        def _check_params(params: list[str], line_num: int):
+            if len(params) != 3:
+                raise ParseError("", line_num, "`hub` takes 3 parameter")
+            if not re.fullmatch(r'\w+', params[0]):
+                raise ParseError("", line_num, "Hub name may contain only letters, numbers, and underscores (_)")
+            if not re.fullmatch(r"[+-]?\d+", params[1]) or not re.fullmatch(r"[+-]?\d+", params[2]):
+                raise ParseError("", line_num, "(x, y) should be a positive or negative number")
+
+
 
     lines: list[tuple[int, str]]
     number_of_drones: int
@@ -144,38 +223,19 @@ class DataParser:
         if zones in connections:
             raise self._raise_error(line_num, "duplicated connection")
         if any(z not in self.zones for z in zones):
-            raise self._raise_error(
-                line_num,
-                "connecting to non existsing zone"
-            )
+            raise self._raise_error(line_num, "connecting to non existsing zone")
         for z in zones:
             self.zones[z].add_connection(connection)
 
-    def _add_zone(
-        self, line_num: int, line: str, coordinate: set[tuple[int, int]]
-    ) -> None:
-        zone = Zone.from_metadata(
-            line,
-            lambda msg: self._raise_error(line_num, msg)
-        )
-        if zone.name in self.zones:
-            raise self._raise_error(
-                line_num,
-                f"duplicated zone name '{zone.name}'"
-            )
-        if (zone.x, zone.y) in coordinate:
-            raise self._raise_error(line_num, "two zones collapse")
-        self.zones[zone.name] = zone
-        coordinate.add((zone.x, zone.y))
-
     def _extract_zones_and_conections(self) -> dict[str, Zone]:
         # these two `sets` below, is only for caching
-        coordinate: set[tuple[int, int]] = set()
+        zp = self.ZoneParser()
         connections: set[tuple[str, str]] = set()
 
         for line_num, line in self.lines:
-            if re.match(r"^(start_hub|end_hub|hub)\s*:", line):
-                self._add_zone(line_num, line, coordinate)
+            if re.match(r"^(start_|end_)?hub\s*:", line):
+                zone = zp.extract(line_num, line)
+                self.zones[zone.name] = zone
             elif re.fullmatch(r"^connection\s*:.+", line):
                 self._create_connection(line_num, line, connections)
             elif re.fullmatch(r"^nb_drones\s*:.+", line):
@@ -194,8 +254,7 @@ class DataParser:
         match_ = re.fullmatch(r"nb_drones\s*:\s*([+-]?\d+)", line[1])
         if match_ is None:
             raise self._raise_error(
-                line[0],
-                "Value of `nb_drones` should be a positive number"
+                line[0], "Value of `nb_drones` should be a positive number"
             )
         number = int(match_.group(1))
         if number <= 0:
