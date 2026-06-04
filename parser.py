@@ -3,11 +3,10 @@ from typing import Any, Callable
 
 
 class ParseError(Exception):
-    def __init__(self, file_path: str, line_number: int, msg: str) -> None:
-        self.file_path = file_path
+    def __init__(self, line_number: int, msg: str) -> None:
         self.line_number = line_number
         self.msg = msg
-        super().__init__(f"{file_path}:{line_number}: {msg}")
+        super().__init__(f"{line_number}: {msg}")
 
 
 def extract_inline_metadata(
@@ -150,14 +149,14 @@ class DataParser:
             for entry in metadata.split():
                 equal_sign = entry.count("=")
                 if equal_sign == 0 or (equal_sign == 1 and entry.endswith("=")):
-                    raise ParseError("", line_num, "(metadata) forgot to assign a value")
+                    raise ParseError(line_num, "(metadata) forgot to assign a value")
                 if equal_sign > 1:
-                    raise ParseError("", line_num, "(metadata) too many equal signs '='")
+                    raise ParseError(line_num, "(metadata) too many equal signs '='")
                 value: Any
                 key, value = entry.split("=")
 
                 if key in data:
-                    raise ParseError("", line_num, f"(metadata) re-assign '{key}'")
+                    raise ParseError(line_num, f"(metadata) re-assign '{key}'")
                 # Unknown metadata
                 assert key in DataParser.ZoneParser.ALLOWED_METADATA_KEYS
 
@@ -178,22 +177,22 @@ class DataParser:
         def _check_hub_type(self, zone_type: str, line_num: int) -> str:
             if zone_type.startswith("start_hub"):
                 if self.start_hub is not None:
-                    raise ParseError("", line_num, "`start_hub` already exists")
+                    raise ParseError(line_num, "`start_hub` already exists")
                 return "start_hub"
             if zone_type.startswith("end_hub"):
                 if self.end_hub is not None:
-                    raise ParseError("", line_num, "`end_hub` already exists")
+                    raise ParseError(line_num, "`end_hub` already exists")
                 return "end_hub"
             return "hub"
 
         @staticmethod
         def _check_params(params: list[str], line_num: int):
             if len(params) != 3:
-                raise ParseError("", line_num, "`hub` takes 3 parameter")
+                raise ParseError(line_num, "`hub` takes 3 parameter")
             if not re.fullmatch(r'\w+', params[0]):
-                raise ParseError("", line_num, "Hub name may contain only letters, numbers, and underscores (_)")
+                raise ParseError(line_num, "Hub name may contain only letters, numbers, and underscores (_)")
             if not re.fullmatch(r"[+-]?\d+", params[1]) or not re.fullmatch(r"[+-]?\d+", params[2]):
-                raise ParseError("", line_num, "(x, y) should be a positive or negative number")
+                raise ParseError(line_num, "(x, y) should be a positive or negative number")
 
 
 
@@ -207,7 +206,7 @@ class DataParser:
         self.file_path = file_path
         self._sanitize_lines(metadata.split("\n"))
         if self.lines == []:
-            raise ParseError(file_path, 0, "file is empty of date")
+            raise ParseError(0, "file is empty of date")
         self.number_of_drones = self._nb_drones(self.lines[0])
         self.lines = self.lines[1:]
         self._extract_zones_and_conections()
@@ -216,14 +215,14 @@ class DataParser:
         self, line_num: int, line: str, connections: set[tuple[str, str]]
     ) -> None:
         connection = Connection.from_metadata(
-            line, lambda msg: self._raise_error(line_num, msg)
+            line, lambda msg: ParseError(line_num, msg)
         )
 
         zones = connection.to_tuple()
         if zones in connections:
-            raise self._raise_error(line_num, "duplicated connection")
+            raise ParseError(line_num, "duplicated connection")
         if any(z not in self.zones for z in zones):
-            raise self._raise_error(line_num, "connecting to non existsing zone")
+            raise ParseError(line_num, "connecting to non existsing zone")
         for z in zones:
             self.zones[z].add_connection(connection)
 
@@ -239,26 +238,26 @@ class DataParser:
             elif re.fullmatch(r"^connection\s*:.+", line):
                 self._create_connection(line_num, line, connections)
             elif re.fullmatch(r"^nb_drones\s*:.+", line):
-                raise self._raise_error(line_num, "re-assign `nb_drones`")
+                raise ParseError(line_num, "re-assign `nb_drones`")
             elif re.match(r"^[\w\s]+\s*:.+", line):
-                raise self._raise_error(
+                raise ParseError(
                     line_num, f"Unknown keyword `{line.split(':')[0].strip()}`"
                 )
             else:
-                raise self._raise_error(line_num, "broken line")
+                raise ParseError(line_num, "broken line")
         return {}
 
     def _nb_drones(self, line: tuple[int, str]) -> int:
         if not re.match(r"^nb_drones\s*:", line[1]):
-            raise self._raise_error(0, "missing `nb_drones` as the first key")
+            raise ParseError(0, "missing `nb_drones` as the first key")
         match_ = re.fullmatch(r"nb_drones\s*:\s*([+-]?\d+)", line[1])
         if match_ is None:
-            raise self._raise_error(
+            raise ParseError(
                 line[0], "Value of `nb_drones` should be a positive number"
             )
         number = int(match_.group(1))
         if number <= 0:
-            raise self._raise_error(line[0], "Assert that `nb_drones` > 0")
+            raise ParseError(line[0], "Assert that `nb_drones` > 0")
         return number
 
     def _sanitize_lines(self, lines: list[str]) -> None:
@@ -268,8 +267,6 @@ class DataParser:
             if line:
                 self.lines.append((line_num, line))
 
-    def _raise_error(self, line_num: int, msg: str) -> ParseError:
-        return ParseError(self.file_path, line_num, msg)
 
 
 if __name__ == "__main__":
