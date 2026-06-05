@@ -33,31 +33,9 @@ class Connection:
     zones: set[str]
     metadata: dict[str, str]
 
-    def __init__(self, zones: tuple[str, str], **metadata: str) -> None:
-        self.zones = set(zones)
-        # convert to parse error or something
-        assert len(self.zones) == 2
-        self.metadata = metadata
-
-    @staticmethod
-    def from_metadata(
-        line: str, raise_error: Callable[[str], ParseError]
-    ) -> "Connection":
-        match_ = re.fullmatch(r"connection\s*:\s*(\w+)-(\w+)(\s+(\[.*\]))?", line)
-        if not match_:
-            raise raise_error("broken connection definition")
-
-        inline_metadata: dict[str, str] = {}
-        if match_.group(4):
-            inline_metadata = extract_inline_metadata(match_.group(4), raise_error)
-        if match_.group(1) == match_.group(2):
-            raise raise_error("zone connect to itself")
-        return Connection((match_.group(1), match_.group(2)), **inline_metadata)
-
-    def to_tuple(self) -> tuple[str, str]:
-        zones: list[str] = list(self.zones)
-        zones.sort()
-        return zones[0], zones[1]
+    def __init__(self, z1: str, z2: str, max_link_capacity: int = 1) -> None:
+        self.zones = {z1, z2}
+        self.max_link_capacity = max_link_capacity
 
     def __repr__(self) -> str:
         return f"Connection('{', '.join(self.zones)}')"
@@ -123,7 +101,7 @@ class DataParser:
 
             extracted_metadata = self._metadata(
                 "[".join(["",] + metadata), line_num
-            )
+            ) if metadata else {}
 
             self._created_zones.add(z_name)
             self._coordinate.add((x, y))
@@ -207,6 +185,89 @@ class DataParser:
                 raise ParseError(line_num, "x and y should be numbers")
             return params[0], int(params[1]), int(params[2])
 
+    class ConnectionParser:
+
+        _established_connections: set[str]
+
+        def __init__(self, zones: dict[str, Zone]) -> None:
+            self._zones = zones
+            self._established_connections = set()
+
+        def extract(self, line_num: int, line: str) -> None:
+            conn_str, *metadata = line.split("[")
+            conn_str = re.sub(r'connection\s+:', 'connection:', conn_str)
+            conn_str = re.sub(r'\s{2,}:', ' ', conn_str)
+            params = conn_str.split()[1:]
+
+            zones2connect = self._check_params(params, line_num)
+            if "-".join(zones2connect) in self._established_connections:
+                raise ParseError(line_num, "connection is already established")
+            self._cache_connection(*zones2connect)
+
+            max_link_capacity = self._metadata(
+                "[".join(["",] + metadata), line_num
+            ) if metadata else 1
+
+            _ = tuple(zones2connect)
+
+            cn = Connection(_[0], _[1], max_link_capacity)
+            for zone in zones2connect:
+                self._zones[zone].add_connection(cn)
+
+        @staticmethod
+        def _metadata(metadata: str, ln: int) -> int:
+            metadata = DataParser._prepare_metadata(metadata, ln)
+            max_link_capacity: int | None = None
+
+            for entry in metadata.split():
+                DataParser._check_metadata_entry(entry, ln)
+
+                key, value = entry.split('=')
+
+                if key != "max_link_capacity":
+                    raise ParseError(ln, f"(metadata) unknown key '{key}'")
+                else:
+                    if max_link_capacity is not None:
+                        raise ParseError(
+                            ln,
+                            "(metadata) `max_link_capacity` is already defined"
+                        )
+                    else:
+                        try:
+                            max_link_capacity = int(value)
+                            if max_link_capacity < 1:
+                                raise ParseError(
+                                    ln,
+                                    "(metadata) max_link_capacity less than 1"
+                                )
+                        except ValueError:
+                            raise ParseError(
+                                ln, "(metadata) value is not a number"
+                            )
+            if max_link_capacity is None:
+                return 1
+            return max_link_capacity
+
+        def _check_params(self, params: list[str], ln: int) -> set[str]:
+            if len(params) != 1:
+                raise ParseError(ln, "connection needs only one argument")
+            conn = params[0]
+            match_ = re.fullmatch(r"(\w+)-(\w+)", conn)
+            if match_ is None:
+                raise ParseError(
+                    ln, "connection should formated like zone1-zone2"
+                )
+
+            zones2connect = {match_.group(1), match_.group(2)}
+            for z_name in zones2connect:
+                if z_name not in self._zones:
+                    raise ParseError(ln, f"'{z_name}', zone is not defined")
+            return zones2connect
+
+        def _cache_connection(self, zone1: str, zone2: str) -> None:
+            self._established_connections.add(f"{zone1}-{zone2}")
+            self._established_connections.add(f"{zone2}-{zone1}")
+
     lines: list[tuple[int, str]]
     number_of_drones: int
     zones: dict[str, Zone]
@@ -222,32 +283,17 @@ class DataParser:
         self.lines = self.lines[1:]
         self._extract_zones_and_conections()
 
-    def _create_connection(
-        self, line_num: int, line: str, connections: set[tuple[str, str]]
-    ) -> None:
-        connection = Connection.from_metadata(
-            line, lambda msg: ParseError(line_num, msg)
-        )
-
-        zones = connection.to_tuple()
-        if zones in connections:
-            raise ParseError(line_num, "duplicated connection")
-        if any(z not in self.zones for z in zones):
-            raise ParseError(line_num, "connecting to non existsing zone")
-        for z in zones:
-            self.zones[z].add_connection(connection)
-
     def _extract_zones_and_conections(self) -> dict[str, Zone]:
         # these two `sets` below, is only for caching
         zp = self.ZoneParser()
-        connections: set[tuple[str, str]] = set()
+        cp = self.ConnectionParser(self.zones)
 
         for line_num, line in self.lines:
             if re.match(r"^(start_|end_)?hub\s*:", line):
                 zone = zp.extract(line_num, line)
                 self.zones[zone.name] = zone
             elif re.fullmatch(r"^connection\s*:.+", line):
-                self._create_connection(line_num, line, connections)
+                cp.extract(line_num, line)
             elif re.fullmatch(r"^nb_drones\s*:.+", line):
                 raise ParseError(line_num, "re-assign `nb_drones`")
             elif re.match(r"^[\w\s]+\s*:.+", line):
