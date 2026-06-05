@@ -1,5 +1,6 @@
 import re
 from typing import Any, Callable
+from flyin import Zone, Connection
 
 
 class ParseError(Exception):
@@ -27,36 +28,6 @@ def extract_inline_metadata(
         else:
             metadata[key] = value
     return metadata
-
-
-class Connection:
-    zones: set[str]
-    metadata: dict[str, str]
-
-    def __init__(self, z1: str, z2: str, max_link_capacity: int = 1) -> None:
-        self.zones = {z1, z2}
-        self.max_link_capacity = max_link_capacity
-
-    def __repr__(self) -> str:
-        return f"Connection('{', '.join(self.zones)}')"
-
-
-class Zone:
-    connections: list[Connection]
-
-    def __init__(self, name: str, x: int, y: int, color: str = "", zone: str = "normal", max_drones: int = 1) -> None:
-        self.name = name
-
-        self.x = x
-        self.y = y
-        self.metadata = metadata
-        self.connections = []
-
-    def __str__(self) -> str:
-        return f"Zone({self.name}: {self.x},{self.y})"
-
-    def add_connection(self, connection: Connection) -> None:
-        self.connections.append(connection)
 
 
 class DataParser:
