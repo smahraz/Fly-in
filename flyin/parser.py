@@ -1,5 +1,5 @@
 import re
-from typing import Any, Callable
+from typing import Any
 from flyin import Zone, Connection
 
 
@@ -8,26 +8,6 @@ class ParseError(Exception):
         self.line_number = line_number
         self.msg = msg
         super().__init__(f"{line_number}: {msg}")
-
-
-def extract_inline_metadata(
-    inline_metadata: str, raise_error: Callable[[str], ParseError]
-) -> dict[str, str]:
-    if not re.fullmatch(
-        r"\[(\s*\w+\s*=\s*\w+)(\s+\w+\s*=\s*\w+)*\s*\]", inline_metadata
-    ):
-        if re.fullmatch(r"\[\s*\]", inline_metadata):
-            raise raise_error("empty brackets []")
-        else:
-            raise raise_error("broken metadata format key=value")
-    metadata = {}
-    for m in re.finditer(r"(\w+)\s*=\s*(\w+)", inline_metadata):
-        key, value = m.groups()
-        if key in metadata:
-            raise raise_error(f"duplicate key '{key}' in metadata")
-        else:
-            metadata[key] = value
-    return metadata
 
 
 class DataParser:
@@ -242,6 +222,8 @@ class DataParser:
     lines: list[tuple[int, str]]
     number_of_drones: int
     zones: dict[str, Zone]
+    start_hub: Zone
+    end_hub: Zone
 
     def __init__(self, metadata: str, file_path: str) -> None:
         self.zones = {}
@@ -254,7 +236,7 @@ class DataParser:
         self.lines = self.lines[1:]
         self._extract_zones_and_conections()
 
-    def _extract_zones_and_conections(self) -> dict[str, Zone]:
+    def _extract_zones_and_conections(self) -> None:
         # these two `sets` below, is only for caching
         zp = self.ZoneParser()
         cp = self.ConnectionParser(self.zones)
@@ -273,7 +255,12 @@ class DataParser:
                 )
             else:
                 raise ParseError(line_num, "broken line")
-        return {}
+        if zp.start_hub is None:
+            raise ParseError(0, "missing start_hub")
+        if zp.end_hub is None:
+            raise ParseError(0, "missing end_hub")
+        self.start_hub = zp.start_hub
+        self.end_hub = zp.end_hub
 
     def _nb_drones(self, line: tuple[int, str]) -> int:
         if not re.match(r"^nb_drones\s*:", line[1]):
