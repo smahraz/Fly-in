@@ -300,6 +300,11 @@ class DataParser:
     @staticmethod
     def _check_metadata_entry(entry: str, line_num: int) -> None:
         equal_sign = entry.count("=")
+        if equal_sign == 1 and entry.startswith("="):
+            raise ParseError(
+                line_num,
+                "(metadata) assignment without key name"
+            )
         if equal_sign == 0 or (equal_sign == 1 and entry.endswith("=")):
             raise ParseError(
                 line_num,
