@@ -84,44 +84,49 @@ class Zone:
 class DataParser:
 
     class ZoneParser:
-        coordinate: set[tuple[int, int]]
+        _coordinate: set[tuple[int, int]]
+        _created_zones: set[str]
+
         start_hub: Zone | None
         end_hub: Zone | None
-
-        _created_zones: set[str]
 
         ALLOWED_METADATA_KEYS = {"zone", "color", "max_drones"}
         ZONE_TYPE = {"normal", "blocked", "restricted", "priority"}
 
-        def __init__(self):
-            self.coordinate = set()
+        def __init__(self) -> None:
+            self._coordinate = set()
+            self._created_zones = set()
             self.start_hub = None
             self.end_hub = None
-            self._created_zones = set()
 
         def extract(
-            self, line_num: int, line: str
+            self,
+            line_num: int,
+            line: str
         ) -> Zone:
             zone_str, *metadata = line.split("[")
             params = [ln for ln in zone_str.split() if ln]
 
             hub_type = self._check_hub_type(params[0], line_num)
 
+            # remove leading part 'exmple: xx xx xx' -> 'xx xx xx'.
             try:
                 params = params[params.index(":") + 1:]
             except Exception:
                 params = params[1:]
 
-            self._check_params(params, line_num)
-            z_name: str = params[0]
-            x: int = int(params[1])
-            y: int = int(params[2])
-            assert z_name not in self._created_zones
-            assert (x, y) not in self.coordinate
-            extracted_metadata = self._metadata("[".join(["",] + metadata), line_num)
+            z_name, x, y = self._check_params(params, line_num)
+            if z_name in self._created_zones:
+                raise ParseError(line_num, f"'{z_name}' is already defined")
+            if (x, y) in self._coordinate:
+                raise ParseError(line_num, "two zones overlap")
+
+            extracted_metadata = self._metadata(
+                "[".join(["",] + metadata), line_num
+            )
 
             self._created_zones.add(z_name)
-            self.coordinate.add((x, y))
+            self._coordinate.add((x, y))
 
             zone = Zone(
                 z_name,
@@ -137,38 +142,39 @@ class DataParser:
             return zone
 
         @staticmethod
-        def _metadata(metadata: str, line_num: int) -> dict[str, Any]:
+        def _metadata(metadata: str, ln: int) -> dict[str, Any]:
+            metadata = DataParser._prepare_metadata(metadata, ln)
             data: dict[str, Any] = {}
-            assert metadata.startswith("[") and metadata.endswith("]")
-            metadata = metadata[1:-1]
-            assert metadata.count("[") == metadata.count("]") == 0
-            metadata = metadata.strip()
-            metadata = re.sub(r"([^\s])\s*=\s*([^\s])", r"\1=\2", metadata)
-            metadata = re.sub(r"\s{2,}", " ", metadata)
 
             for entry in metadata.split():
-                equal_sign = entry.count("=")
-                if equal_sign == 0 or (equal_sign == 1 and entry.endswith("=")):
-                    raise ParseError(line_num, "(metadata) forgot to assign a value")
-                if equal_sign > 1:
-                    raise ParseError(line_num, "(metadata) too many equal signs '='")
+                DataParser._check_metadata_entry(entry, ln)
                 value: Any
                 key, value = entry.split("=")
 
                 if key in data:
-                    raise ParseError(line_num, f"(metadata) re-assign '{key}'")
-                # Unknown metadata
-                assert key in DataParser.ZoneParser.ALLOWED_METADATA_KEYS
+                    raise ParseError(ln, f"(metadata) re-assign '{key}'")
+
+                if key not in DataParser.ZoneParser.ALLOWED_METADATA_KEYS:
+                    raise ParseError(ln, f"(metadata) unknown key `{key}`")
 
                 match key:
                     case "zone":
-                        assert value in DataParser.ZoneParser.ZONE_TYPE
+                        if value not in DataParser.ZoneParser.ZONE_TYPE:
+                            raise ParseError(
+                                ln, "(metadata) unknown zone type"
+                            )
                     case "max_drones":
                         try:
                             value = int(value)
-                            assert value > 0
+                            if value < 1:
+                                raise ParseError(
+                                    ln, "(metadata) max_drones is less than 1"
+                                )
                         except ValueError:
-                            raise ValueError("")
+                            raise ParseError(
+                                ln,
+                                "(metadata) max_drones value isn't a number"
+                            )
                     case "color":
                         pass
                 data[key] = value
@@ -186,15 +192,20 @@ class DataParser:
             return "hub"
 
         @staticmethod
-        def _check_params(params: list[str], line_num: int):
+        def _check_params(
+            params: list[str],
+            line_num: int
+        ) -> tuple[str, int, int]:
             if len(params) != 3:
                 raise ParseError(line_num, "`hub` takes 3 parameter")
             if not re.fullmatch(r'\w+', params[0]):
-                raise ParseError(line_num, "Hub name may contain only letters, numbers, and underscores (_)")
-            if not re.fullmatch(r"[+-]?\d+", params[1]) or not re.fullmatch(r"[+-]?\d+", params[2]):
-                raise ParseError(line_num, "(x, y) should be a positive or negative number")
-
-
+                raise ParseError(
+                    line_num,
+                    "Hub name may contain only letters, numbers, & underscores"
+                )
+            if not all(re.fullmatch(r"[+-]?\d+", pr) for pr in params[1:3]):
+                raise ParseError(line_num, "x and y should be numbers")
+            return params[0], int(params[1]), int(params[2])
 
     lines: list[tuple[int, str]]
     number_of_drones: int
@@ -206,7 +217,7 @@ class DataParser:
         self.file_path = file_path
         self._sanitize_lines(metadata.split("\n"))
         if self.lines == []:
-            raise ParseError(0, "file is empty of date")
+            raise ParseError(0, "noting to extract, file empty")
         self.number_of_drones = self._nb_drones(self.lines[0])
         self.lines = self.lines[1:]
         self._extract_zones_and_conections()
@@ -267,6 +278,35 @@ class DataParser:
             if line:
                 self.lines.append((line_num, line))
 
+    @staticmethod
+    def _prepare_metadata(metadata: str, ln: int) -> str:
+        if not metadata.endswith("]"):
+            raise ParseError(
+                ln,
+                "(metadata) missing square bracket near the end"
+            )
+        metadata = metadata[1:-1]
+        if metadata.count("[") or metadata.count("]"):
+            raise ParseError(
+                ln,
+                "(metadata) no square brackets should be inside metadata"
+            )
+        metadata = metadata.strip()
+        # remove spaces around equal sign.
+        metadata = re.sub(r"([^\s])\s*=\s*([^\s])", r"\1=\2", metadata)
+        # replace consecutive spaces with a single space.
+        return re.sub(r"\s{2,}", " ", metadata)
+
+    @staticmethod
+    def _check_metadata_entry(entry: str, line_num: int) -> None:
+        equal_sign = entry.count("=")
+        if equal_sign == 0 or (equal_sign == 1 and entry.endswith("=")):
+            raise ParseError(
+                line_num,
+                f"(metadata) forgot to assign a val to '{entry.split('=')[0]}'"
+            )
+        if equal_sign > 1:
+            raise ParseError(line_num, "(metadata) too many equal signs '='")
 
 
 if __name__ == "__main__":
