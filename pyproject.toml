@@ -1,7 +1,9 @@
 [project]
-name = "fly-in"
+name = "flyin"
 version = "0.1.0"
 description = "drone sync & graph path finding"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "raylib>=6.0.1.0",
+]
