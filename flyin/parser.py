@@ -225,10 +225,9 @@ class DataParser:
     start_hub: Zone
     end_hub: Zone
 
-    def __init__(self, metadata: str, file_path: str) -> None:
+    def __init__(self, metadata: str) -> None:
         self.zones = {}
 
-        self.file_path = file_path
         self._sanitize_lines(metadata.split("\n"))
         if self.lines == []:
             raise ParseError(0, "noting to extract, file empty")
@@ -325,7 +324,7 @@ if __name__ == "__main__":
 
     try:
 
-        d = DataParser(metadata, PATH)
+        d = DataParser(metadata)
     except ParseError as e:
         print(e)
         exit()
