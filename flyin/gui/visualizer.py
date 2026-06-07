@@ -75,6 +75,9 @@ class Visualizer:
 
     def loop(self) -> None:
         while not WindowShouldClose():
+            wheel = GetMouseWheelMove()
+            self._mousewheel(wheel)
+
             ClearBackground(BG_COLOR)
             BeginDrawing()
             BeginMode2D(self._camera[0])
@@ -111,6 +114,14 @@ class Visualizer:
                     *self._scaling_formula(*z2p(self, z2)),
                     BLACK
                 )
+
+    def _mousewheel(self, wheel_move: int) -> None:
+        if self._camera.zoom < 2:
+            self._camera.zoom += wheel_move * 0.05
+            if self._camera.zoom < 0.2:
+                self._camera.zoom = 0.2
+        else:
+            self._camera.zoom += wheel_move * 0.4
 
     @staticmethod
     def _scaling_formula(x: int, y: int) -> tuple[int, int]:
