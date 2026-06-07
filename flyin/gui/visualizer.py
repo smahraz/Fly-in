@@ -76,7 +76,10 @@ class Visualizer:
     def loop(self) -> None:
         while not WindowShouldClose():
             wheel = GetMouseWheelMove()
-            self._mousewheel(wheel)
+            if wheel:
+                self._mouse_wheel(wheel)
+            if IsMouseButtonDown(MOUSE_BUTTON_LEFT):
+                self._mouse_drag()
 
             ClearBackground(BG_COLOR)
             BeginDrawing()
@@ -115,13 +118,18 @@ class Visualizer:
                     BLACK
                 )
 
-    def _mousewheel(self, wheel_move: int) -> None:
+    def _mouse_wheel(self, wheel_move: int) -> None:
         if self._camera.zoom < 2:
             self._camera.zoom += wheel_move * 0.05
             if self._camera.zoom < 0.2:
                 self._camera.zoom = 0.2
         else:
             self._camera.zoom += wheel_move * 0.4
+
+    def _mouse_drag(self) -> None:
+        delta = GetMouseDelta()
+        self._camera.target.x -= delta.x / self._camera.zoom
+        self._camera.target.y -= delta.y / self._camera.zoom
 
     @staticmethod
     def _scaling_formula(x: int, y: int) -> tuple[int, int]:
