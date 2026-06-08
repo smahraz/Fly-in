@@ -1,6 +1,6 @@
 import re
 from typing import Any
-from flyin import Zone, Connection
+from flyin import Zone, Connection, colors
 
 
 class ParseError(Exception):
@@ -105,7 +105,13 @@ class DataParser:
                                 "(metadata) max_drones value isn't a number"
                             )
                     case "color":
-                        pass
+                        value = value.lower()
+                        if value.lower() not in colors:
+                            raise ParseError(
+                                ln,
+                                f"(metadata) color '{value}' is not supported"
+                            )
+                        value = colors[value]
                 data[key] = value
             return data
 

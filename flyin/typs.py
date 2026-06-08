@@ -1,6 +1,9 @@
 from enum import IntEnum, auto
 
 
+WHITE = (0xff, 0xff, 0xff, 0xff)
+
+
 class Connection:
     zones: set[str]
     metadata: dict[str, str]
@@ -37,13 +40,14 @@ class Zone:
         y: int,
         zone: str = "normal",
         max_drones: int = 1,
-        color: str = ""
+        color: tuple[int, int, int, int] = WHITE
     ) -> None:
         self.name = name
 
         self.x = x
         self.y = y
         self.connections = []
+        self.color = color
 
         assert zone in self.ZONE_TYPES
         assert max_drones > 0
