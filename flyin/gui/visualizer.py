@@ -1,3 +1,4 @@
+from os import wait
 from raylib import *
 from flyin import DataParser
 
@@ -94,12 +95,30 @@ class Visualizer:
         SidePanel(self.parsing_data).draw()
 
     def _draw_zones(self) -> None:
+        FONT_SIZE = 18
         for zone in self.parsing_data.zones.values():
+            x, y = self._scaling_formula(zone.x, zone.y)
             DrawCircle(
-                *self._scaling_formula(zone.x, zone.y),
+                x, y,
                 ZONE_RADIUS,
+                zone.color
+            )
+            font_width = MeasureText(zone.name.encode(), FONT_SIZE)
+            if font_width > SCALE * 2 + 30 and zone.x % 2:
+                y += SCALE + 3
+                print("here")
+            else:
+                y -= SCALE + 18
+
+            DrawText(
+                zone.name.encode(),
+                x - font_width // 2,
+                y,
+                FONT_SIZE,
                 WHITE
             )
+
+
 
     def _draw_connections(self) -> None:
         def z2p(obj: Visualizer, zone_name: str) -> tuple[int, int]:
@@ -118,7 +137,7 @@ class Visualizer:
                     BLACK
                 )
 
-    def _mouse_wheel(self, wheel_move: int) -> None:
+    def _mouse_wheel(self, wheel_move: float) -> None:
         if self._camera.zoom < 2:
             self._camera.zoom += wheel_move * 0.05
             if self._camera.zoom < 0.2:
