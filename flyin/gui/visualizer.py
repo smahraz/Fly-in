@@ -1,5 +1,4 @@
-from os import wait
-from raylib import *
+import raylib as rl
 from flyin import DataParser
 
 BG_COLOR = (0x66, 0x33, 0x99, 0xff)
@@ -26,7 +25,7 @@ class SidePanel:
         self.x = WIDTH - SIDEPANEL_WIDTH
 
     def draw(self) -> None:
-        DrawRectangle(
+        rl.DrawRectangle(
             self.x,
             self.y,
             SIDEPANEL_WIDTH,
@@ -44,21 +43,21 @@ class SidePanel:
         self.y += 20
         x = self.x + 12
 
-        DrawText(
+        rl.DrawText(
             title.encode(),
             x,
             self.y,
             TITLE_TEXT_SIZE,
-            WHITE
+            rl.WHITE
         )
         self.y += 20
         x += 20
-        DrawText(
+        rl.DrawText(
             value.encode(),
             x,
             self.y,
             VALUE_TEXT_SIZE,
-            WHITE
+            rl.WHITE
         )
 
 
@@ -70,26 +69,26 @@ class Visualizer:
 
     @classmethod
     def start(cls, parsing_data: DataParser) -> None:
-        InitWindow(WIDTH, HEIGHT, TITLE)
+        rl.InitWindow(WIDTH, HEIGHT, TITLE)
         cls(parsing_data).loop()
-        CloseWindow()
+        rl.CloseWindow()
 
     def loop(self) -> None:
-        while not WindowShouldClose():
-            wheel = GetMouseWheelMove()
+        while not rl.WindowShouldClose():
+            wheel = rl.GetMouseWheelMove()
             if wheel:
                 self._mouse_wheel(wheel)
-            if IsMouseButtonDown(MOUSE_BUTTON_LEFT):
+            if rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT):
                 self._mouse_drag()
 
-            ClearBackground(BG_COLOR)
-            BeginDrawing()
-            BeginMode2D(self._camera[0])
+            rl.ClearBackground(BG_COLOR)
+            rl.BeginDrawing()
+            rl.BeginMode2D(self._camera[0])
             self._draw_connections()
             self._draw_zones()
-            EndMode2D()
+            rl.EndMode2D()
             self._draw_sidepanel()
-            EndDrawing()
+            rl.EndDrawing()
 
     def _draw_sidepanel(self) -> None:
         SidePanel(self.parsing_data).draw()
@@ -98,27 +97,24 @@ class Visualizer:
         FONT_SIZE = 18
         for zone in self.parsing_data.zones.values():
             x, y = self._scaling_formula(zone.x, zone.y)
-            DrawCircle(
+            rl.DrawCircle(
                 x, y,
                 ZONE_RADIUS,
                 zone.color
             )
-            font_width = MeasureText(zone.name.encode(), FONT_SIZE)
+            font_width = rl.MeasureText(zone.name.encode(), FONT_SIZE)
             if font_width > SCALE * 2 + 30 and zone.x % 2:
                 y += SCALE + 3
-                print("here")
             else:
                 y -= SCALE + 18
 
-            DrawText(
+            rl.DrawText(
                 zone.name.encode(),
                 x - font_width // 2,
                 y,
                 FONT_SIZE,
-                WHITE
+                rl.WHITE
             )
-
-
 
     def _draw_connections(self) -> None:
         def z2p(obj: Visualizer, zone_name: str) -> tuple[int, int]:
@@ -131,10 +127,10 @@ class Visualizer:
                     continue
                 drawn_conn.add(conn)
                 z1, z2 = conn.zones
-                DrawLine(
+                rl.DrawLine(
                     *self._scaling_formula(*z2p(self, z1)),
                     *self._scaling_formula(*z2p(self, z2)),
-                    BLACK
+                    rl.BLACK
                 )
 
     def _mouse_wheel(self, wheel_move: float) -> None:
@@ -146,7 +142,7 @@ class Visualizer:
             self._camera.zoom += wheel_move * 0.4
 
     def _mouse_drag(self) -> None:
-        delta = GetMouseDelta()
+        delta = rl.GetMouseDelta()
         self._camera.target.x -= delta.x / self._camera.zoom
         self._camera.target.y -= delta.y / self._camera.zoom
 
@@ -157,7 +153,7 @@ class Visualizer:
         return x, y
 
     def _init_camera(self) -> None:
-        self._camera = ffi.new("Camera2D *")
+        self._camera = rl.ffi.new("Camera2D *")
         self._camera.offset.x = 70
         self._camera.offset.y = HEIGHT // 2
         self._camera.target.x = 0
