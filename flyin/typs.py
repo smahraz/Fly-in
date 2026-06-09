@@ -49,6 +49,9 @@ class Zone:
         self.connections = []
         self.color = color
 
+        self._drone_count = 0
+        self.deadend = False
+
         assert zone in self.ZONE_TYPES
         assert max_drones > 0
 
