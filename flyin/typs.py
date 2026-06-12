@@ -40,8 +40,26 @@ class Point:
         )
 
 
-class Connection:
+class Location:
+    pos: Point
+    drone_count: int
+    max_drones: int
+
+    def add_drone(self) -> None:
+        assert self.drone_count <= self.max_drones
+        self.drone_count += 1
+
+    def sub_drone(self) -> None:
+        assert self.drone_count > 0
+        self.drone_count -= 1
+
+    def is_full(self) -> bool:
+        return self.max_drones - self.drone_count == 0
+
+
+class Connection(Location):
     zones: tuple["Zone", "Zone"]
+    pos: Point
 
     def __init__(
         self,
@@ -50,26 +68,16 @@ class Connection:
         max_link_capacity: int = 1
     ) -> None:
         self.zones = (z1, z2)
-        self.max_link_capacity = max_link_capacity
+        self.pos = (z1.pos + z2.pos) / 2
+        self.max_drones = max_link_capacity
 
-        self._drone_count = 0
+        self.drone_count = 0
 
     def __repr__(self) -> str:
         return f"Connection('{', '.join(z.name for z in self.zones)}')"
 
-    def is_full(self) -> bool:
-        return self.max_link_capacity - self._drone_count == 0
 
-    def drone_passing_through(self) -> None:
-        assert self._drone_count <= self.max_link_capacity
-        self._drone_count += 1
-
-    def drone_passed(self) -> None:
-        assert self._drone_count > 0
-        self._drone_count -= 1
-
-
-class Zone:
+class Zone(Location):
 
     class ZoneType(IntEnum):
         NORMAL = auto()
@@ -100,7 +108,7 @@ class Zone:
         self.connections = set()
         self.color = color
 
-        self._drone_count = 0
+        self.drone_count = 0
         self.deadend = False
 
         assert zone in self.ZONE_TYPES
@@ -115,49 +123,24 @@ class Zone:
     def add_connection(self, connection: Connection) -> None:
         self.connections.add(connection)
 
-    def drone_arrives(self) -> None:
-        assert self._drone_count <= self.max_drones
-        self._drone_count += 1
-
-    def drone_leaves(self) -> None:
-        assert self._drone_count > 0
-        self._drone_count -= 1
-
-    def is_full(self) -> bool:
-        return self.max_drones - self._drone_count == 0
-
 
 class Drone:
     drone_id = 0
-    current_zone: Zone
-    prev_zone: Zone | None
-    prev_conn: Connection
+    current_location: Location
+    prev_location: Location
 
-    def __init__(self, start_hub: Zone) -> None:
+    def __init__(self, start_hub: Location) -> None:
         self.__class__.drone_id += 1
         self.drone_id = self.drone_id
 
-        self.current_zone = start_hub
-        start_hub.drone_arrives()
-        self.prev_zone = None
+        self.current_location = start_hub
+        self.prev_location = start_hub
+        start_hub.add_drone()
         self.moving_to_restricted = False
 
-    def move_to(self, new_zone: Zone, conn: Connection) -> None:
-        assert new_zone.zone != Zone.ZoneType.BLOCKED
-        self.prev_conn = conn
+    def move_to(self, new_location: Location) -> None:
+        new_location.add_drone()
+        self.current_location.sub_drone()
 
-        if new_zone.zone == Zone.ZoneType.RESTRICTED:
-            self.moving_to_restricted = True
-        else:
-            new_zone.drone_arrives()
-
-        self.current_zone.drone_leaves()
-
-        conn.drone_passing_through()
-        self.prev_zone = self.current_zone
-        self.current_zone = new_zone
-
-    def clear_conn(self) -> None:
-        if self.prev_zone is not None:
-            if not self.moving_to_restricted:
-                self.prev_conn.drone_passed()
+        self.prev_location = self.current_location
+        self.current_location = new_location

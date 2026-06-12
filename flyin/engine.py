@@ -1,6 +1,7 @@
 from typing import Iterable, Generator
 from queue import Queue
 from flyin import DataParser, Zone, Drone
+from flyin.typs import Connection
 
 
 class Engine:
@@ -52,6 +53,11 @@ class Engine:
                 q.put(zone)
             return q
 
+        def get_from_queue(drone: Drone) -> None:
+            moved.append(drone)
+            if targets[drone] != self._parsing_data.end_hub:
+                targets[drone] = paths[drone].get()
+
         path = self.find_all_paths()[0]
         drone_nb = self._parsing_data.number_of_drones
         drones = [Drone(self._parsing_data.start_hub) for _ in range(drone_nb)]
@@ -65,38 +71,28 @@ class Engine:
             for d in drones
         }
 
-        moved: list[Drone]
         turn = 0
         while not self._parsing_data.end_hub.is_full():
             moved = []
             for d in drones:
-                if d not in targets:
-                    continue
-                if not targets[d].is_full():
-                    conn, *_ = targets[d].connections & d.current_zone.connections
-                    if d.moving_to_restricted:
-                        d.moving_to_restricted = False
-                        d.current_zone.drone_arrives()
-                        if targets[d] != self._parsing_data.end_hub:
-                            targets[d] = paths[d].get()
-                        else:
-                            del targets[d]
-                        moved.append(d)
-                    elif not conn.is_full():
-                        d.move_to(targets[d], conn)
-                        if targets[d].zone != Zone.ZoneType.RESTRICTED:
-                            if targets[d] != self._parsing_data.end_hub:
-                                targets[d] = paths[d].get()
-                            else:
-                                del targets[d]
-                        moved.append(d)
-
+                if targets[d].zone is Zone.ZoneType.RESTRICTED:
+                    if isinstance(d.current_location, Connection):
+                        if not targets[d].is_full():
+                            d.move_to(targets[d])
+                            get_from_queue(d)
+                    elif isinstance(d.current_location, Zone):
+                        conn, *_ = targets[d].connections & d.current_location.connections
+                        if not conn.is_full():
+                            d.move_to(conn)
+                else:
+                    if not targets[d].is_full():
+                        d.move_to(targets[d])
+                        get_from_queue(d)
             turn += 1
-            print(f"turn {turn}", "*"*7)
-            for d in moved:
-                print(d.drone_id, d.prev_zone, d.current_zone)
-                d.clear_conn()
-            yield drones
+            print([d.current_location for d in moved])
+            yield []
+        for d in drones:
+            print(d.current_location)
 
     def _find_all_paths(
         self,
@@ -145,4 +141,3 @@ if __name__ == "__main__":
         e = Engine(d)
         for i in e.simulation():
             pass
-
