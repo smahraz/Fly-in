@@ -1,5 +1,5 @@
 import raylib as rl
-from flyin import DataParser
+from flyin import Zone, DataParser
 from flyin.parser import SCALE
 
 BG_COLOR = (0x66, 0x33, 0x99, 0xff)
@@ -97,23 +97,40 @@ class Visualizer:
     def _draw_zones(self) -> None:
         FONT_SIZE = 18
         for zone in self.parsing_data.zones.values():
+            mergin = 0
+            if zone.zone is Zone.ZoneType.RESTRICTED:
+                mergin = 10
+                factor = 0.5
+                darker_color = (
+                    int(zone.color[0] * factor),
+                    int(zone.color[1] * factor),
+                    int(zone.color[2] * factor),
+                    0xff
+                )
+
+                rl.DrawCircle(
+                    *zone.pos.as_tuple(),
+                    ZONE_RADIUS,
+                    darker_color
+                )
+
             rl.DrawCircle(
                 *zone.pos.as_tuple(),
-                ZONE_RADIUS,
+                ZONE_RADIUS - mergin,
                 zone.color
             )
+
             font_width = rl.MeasureText(zone.name.encode(), FONT_SIZE)
-            y = int(zone.pos.y)
-            if font_width > SCALE / 2 and (zone.pos.x // SCALE) % 2:
-                y += int(ZONE_RADIUS) + 3
+            y = zone.pos.y
+            if font_width > SCALE / 1.2 and (zone.pos.x // SCALE) % 2:
+                y += ZONE_RADIUS + 3
             else:
-                y -= int(ZONE_RADIUS) + 18
-            print(font_width, SCALE / 2, (zone.pos.x // SCALE) % 2)
+                y -= ZONE_RADIUS + 18
 
             rl.DrawText(
                 zone.name.encode(),
                 int(zone.pos.x) - font_width // 2,
-                y,
+                int(y),
                 FONT_SIZE,
                 rl.WHITE
             )
@@ -126,10 +143,14 @@ class Visualizer:
                     continue
                 drawn_conn.add(conn)
                 z1, z2 = conn.zones
+                color = rl.BLACK
+                if any(z.zone is Zone.ZoneType.RESTRICTED for z in conn.zones):
+                    color = rl.RED
+
                 rl.DrawLine(
                     *z1.pos.as_tuple(),
                     *z2.pos.as_tuple(),
-                    rl.BLACK
+                    color
                 )
 
     def _mouse_wheel(self, wheel_move: float) -> None:
