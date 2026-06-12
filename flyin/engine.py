@@ -54,13 +54,14 @@ class Engine:
             return q
 
         def get_from_queue(drone: Drone) -> None:
-            moved.append(drone)
             if targets[drone] != self._parsing_data.end_hub:
                 targets[drone] = paths[drone].get()
 
         path = self.find_all_paths()[0]
         drone_nb = self._parsing_data.number_of_drones
         drones = [Drone(self._parsing_data.start_hub) for _ in range(drone_nb)]
+
+        yield drones
 
         paths = {
             d: path_to_queue(path)
@@ -73,7 +74,6 @@ class Engine:
 
         turn = 0
         while not self._parsing_data.end_hub.is_full():
-            moved = []
             for d in drones:
                 if targets[d].zone is Zone.ZoneType.RESTRICTED:
                     if isinstance(d.current_location, Connection):
@@ -89,10 +89,7 @@ class Engine:
                         d.move_to(targets[d])
                         get_from_queue(d)
             turn += 1
-            print([d.current_location for d in moved])
             yield []
-        for d in drones:
-            print(d.current_location)
 
     def _find_all_paths(
         self,
