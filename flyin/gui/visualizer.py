@@ -1,6 +1,7 @@
 import raylib as rl
-from flyin import Zone, DataParser
+from flyin import Zone, DataParser, Point, Drone
 from flyin.parser import SCALE
+from flyin import Engine
 
 BG_COLOR = (0x66, 0x33, 0x99, 0xff)
 
@@ -11,6 +12,7 @@ SIDEPANEL_BG_COLOR = (0x4c, 0x4e, 0x96, 0xff)
 SIDEPANEL_WIDTH = 250
 SIDEPANEL_HEIGHT = HEIGHT
 
+PAUSE_TIME = 1.0
 
 ZONE_RADIUS = 50.0
 
@@ -62,10 +64,72 @@ class SidePanel:
         )
 
 
+class DrawDrone:
+    TRAVEL_TIME = 1
+
+    all_poses: dict[Drone, Point] = {}
+
+    def __init__(self, drone: Drone, dt: float) -> None:
+        self.drone = drone
+        self.dt = dt
+
+    def draw(self) -> bool:
+        v = self.speed(self.drone)
+        if v == 0:
+            self.all_poses[self.drone] = self.drone.prev_location.pos.cp()
+            self._draw_drone()
+            return True
+
+        if self.drone not in self.all_poses:
+            self.all_poses[self.drone] = self.drone.prev_location.pos.cp()
+            self._draw_drone()
+            return False
+
+        remaining = self.all_poses[self.drone].distance(
+                self.drone.current_location.pos
+        )
+
+        if remaining < 1:
+            self.all_poses[self.drone] = self.drone.current_location.pos.cp()
+            self._draw_drone()
+            return True
+
+        delta = self.drone.current_location.pos - self.all_poses[self.drone]
+
+        pos = self.all_poses[self.drone]
+
+        pos.x += (delta.x / remaining) * v * self.dt
+        pos.y += (delta.y / remaining) * v * self.dt
+
+        self._draw_drone()
+
+        return False
+
+    @staticmethod
+    def speed(d: Drone) -> float:
+        return d.prev_location.pos.distance(d.current_location.pos) \
+            / DrawDrone.TRAVEL_TIME
+
+    def _draw_drone(self) -> None:
+        rl.DrawCircle(
+            *self.all_poses[self.drone].as_tuple(),
+            25.0,
+            rl.WHITE
+        )
+        rl.DrawText(
+            f"{self.drone.drone_id}".encode(),
+            *self.all_poses[self.drone].as_tuple(),
+            50,
+            rl.BLACK
+        )
+
+
 class Visualizer:
 
     def __init__(self, parsing_data: DataParser) -> None:
         self.parsing_data = parsing_data
+        self.simulation = Engine(parsing_data).simulation()
+        self.drones = next(self.simulation)
         self._init_camera()
 
     @classmethod
@@ -75,6 +139,7 @@ class Visualizer:
         rl.CloseWindow()
 
     def loop(self) -> None:
+        pause_time = 0.0
         while not rl.WindowShouldClose():
             wheel = rl.GetMouseWheelMove()
             if wheel:
@@ -87,9 +152,22 @@ class Visualizer:
             rl.BeginMode2D(self._camera[0])
             self._draw_connections()
             self._draw_zones()
+            if self._draw_drones():
+                if pause_time > PAUSE_TIME:
+                    pause_time = 0
+                    next(self.simulation)
+                else:
+                    pause_time += rl.GetFrameTime()
             rl.EndMode2D()
             self._draw_sidepanel()
             rl.EndDrawing()
+
+    def _draw_drones(self) -> bool:
+        next_ = True
+        dt = rl.GetFrameTime()
+        for d in self.drones:
+            next_ &= DrawDrone(d, dt).draw()
+        return next_
 
     def _draw_sidepanel(self) -> None:
         SidePanel(self.parsing_data).draw()
