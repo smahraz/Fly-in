@@ -1,5 +1,6 @@
 import raylib as rl
 from flyin import DataParser
+from flyin.parser import SCALE
 
 BG_COLOR = (0x66, 0x33, 0x99, 0xff)
 
@@ -12,7 +13,7 @@ SIDEPANEL_HEIGHT = HEIGHT
 
 
 ZONE_RADIUS = 50.0
-SCALE = int(ZONE_RADIUS)
+
 ZONE_SPACING = SCALE + 40
 
 TITLE = b"Fly-in"
@@ -96,30 +97,28 @@ class Visualizer:
     def _draw_zones(self) -> None:
         FONT_SIZE = 18
         for zone in self.parsing_data.zones.values():
-            x, y = self._scaling_formula(zone.x, zone.y)
             rl.DrawCircle(
-                x, y,
+                *zone.pos.as_tuple(),
                 ZONE_RADIUS,
                 zone.color
             )
             font_width = rl.MeasureText(zone.name.encode(), FONT_SIZE)
-            if font_width > SCALE * 2 + 30 and zone.x % 2:
-                y += SCALE + 3
+            y = int(zone.pos.y)
+            if font_width > SCALE / 2 and (zone.pos.x // SCALE) % 2:
+                y += int(ZONE_RADIUS) + 3
             else:
-                y -= SCALE + 18
+                y -= int(ZONE_RADIUS) + 18
+            print(font_width, SCALE / 2, (zone.pos.x // SCALE) % 2)
 
             rl.DrawText(
                 zone.name.encode(),
-                x - font_width // 2,
+                int(zone.pos.x) - font_width // 2,
                 y,
                 FONT_SIZE,
                 rl.WHITE
             )
 
     def _draw_connections(self) -> None:
-        def z2p(obj: Visualizer, zone_name: str) -> tuple[int, int]:
-            zone = obj.parsing_data.zones[zone_name]
-            return zone.x, zone.y
         drawn_conn = set()
         for zone in self.parsing_data.zones.values():
             for conn in zone.connections:
@@ -128,8 +127,8 @@ class Visualizer:
                 drawn_conn.add(conn)
                 z1, z2 = conn.zones
                 rl.DrawLine(
-                    *self._scaling_formula(*z2p(self, z1)),
-                    *self._scaling_formula(*z2p(self, z2)),
+                    *z1.pos.as_tuple(),
+                    *z2.pos.as_tuple(),
                     rl.BLACK
                 )
 
@@ -145,12 +144,6 @@ class Visualizer:
         delta = rl.GetMouseDelta()
         self._camera.target.x -= delta.x / self._camera.zoom
         self._camera.target.y -= delta.y / self._camera.zoom
-
-    @staticmethod
-    def _scaling_formula(x: int, y: int) -> tuple[int, int]:
-        x = x * SCALE + x * ZONE_SPACING
-        y = y * SCALE + y * ZONE_SPACING
-        return x, y
 
     def _init_camera(self) -> None:
         self._camera = rl.ffi.new("Camera2D *")

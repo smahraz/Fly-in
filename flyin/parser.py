@@ -1,7 +1,8 @@
 import re
 from typing import Any
-from flyin import Zone, Connection, colors
+from flyin import Zone, Connection, colors, Point
 
+SCALE = 150
 
 class ParseError(Exception):
     def __init__(self, line_number: int, msg: str) -> None:
@@ -59,8 +60,7 @@ class DataParser:
 
             zone = Zone(
                 z_name,
-                x,
-                y,
+                Point(x, y) * SCALE,
                 **extracted_metadata
             )
             match hub_type:
@@ -165,11 +165,14 @@ class DataParser:
                 "[".join(["",] + metadata), line_num
             ) if metadata else 1
 
-            _ = tuple(zones2connect)
+            zones = (
+                self._zones[zones2connect[0]],
+                self._zones[zones2connect[1]],
+            )
 
-            cn = Connection(_[0], _[1], max_link_capacity)
-            for zone in zones2connect:
-                self._zones[zone].add_connection(cn)
+            cn = Connection(*zones, max_link_capacity)
+            for zone in zones:
+                zone.add_connection(cn)
 
         @staticmethod
         def _metadata(metadata: str, ln: int) -> int:
@@ -205,7 +208,7 @@ class DataParser:
                 return 1
             return max_link_capacity
 
-        def _check_params(self, params: list[str], ln: int) -> set[str]:
+        def _check_params(self, params: list[str], ln: int) -> tuple[str, str]:
             if len(params) != 1:
                 raise ParseError(ln, "connection needs only one argument")
             conn = params[0]
@@ -215,7 +218,7 @@ class DataParser:
                     ln, "connection should formated like zone1-zone2"
                 )
 
-            zones2connect = {match_.group(1), match_.group(2)}
+            zones2connect = (match_.group(1), match_.group(2))
             for z_name in zones2connect:
                 if z_name not in self._zones:
                     raise ParseError(ln, f"'{z_name}', zone is not defined")

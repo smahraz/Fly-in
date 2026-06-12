@@ -1,19 +1,61 @@
 from enum import IntEnum, auto
+import math
 
 
 WHITE = (0xff, 0xff, 0xff, 0xff)
 
 
-class Connection:
-    zones: set[str]
+class Point:
+    x: float
+    y: float
 
-    def __init__(self, z1: str, z2: str, max_link_capacity: int = 1) -> None:
-        self.zones = {z1, z2}
+    def __init__(self, x: float | int, y: float | int) -> None:
+        self.x = float(x)
+        self.y = float(y)
+
+    def as_tuple(self) -> tuple[int, int]:
+        return int(self.x), int(self.y)
+
+    def __truediv__(self, other: int | float) -> "Point":
+        self.x /= other
+        self.y /= other
+        return self
+
+    def __add__(self, other: "Point") -> "Point":
+        return Point(
+            self.x + other.x,
+            self.y + other.y
+        )
+
+    def __mul__(self, other: float) -> "Point":
+        return Point(
+            self.x * other,
+            self.y * other
+        )
+
+    def distance(self, other: "Point") -> float:
+        return math.sqrt(
+            (self.x - other.x) ** 2 +
+            (self.y - other.y) ** 2
+        )
+
+
+class Connection:
+    zones: tuple["Zone", "Zone"]
+
+    def __init__(
+        self,
+        z1: "Zone",
+        z2: "Zone",
+        max_link_capacity: int = 1
+    ) -> None:
+        self.zones = (z1, z2)
         self.max_link_capacity = max_link_capacity
+
         self._drone_count = 0
 
     def __repr__(self) -> str:
-        return f"Connection('{', '.join(self.zones)}')"
+        return f"Connection('{', '.join(z.name for z in self.zones)}')"
 
     def is_full(self) -> bool:
         return self.max_link_capacity - self._drone_count == 0
@@ -47,16 +89,14 @@ class Zone:
     def __init__(
         self,
         name: str,
-        x: int,
-        y: int,
+        pos: Point,
         zone: str = "normal",
         max_drones: int = 1,
         color: tuple[int, int, int, int] = WHITE
     ) -> None:
         self.name = name
 
-        self.x = x
-        self.y = y
+        self.pos = pos
         self.connections = set()
         self.color = color
 
@@ -70,7 +110,7 @@ class Zone:
         self.max_drones = max_drones
 
     def __str__(self) -> str:
-        return f"Zone({self.name}: {self.x},{self.y})"
+        return f"Zone({self.name}: {self.pos.x},{self.pos.y})"
 
     def add_connection(self, connection: Connection) -> None:
         self.connections.add(connection)
