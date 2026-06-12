@@ -33,10 +33,22 @@ class Point:
             self.y * other
         )
 
+    def __sub__(self, other: "Point") -> "Point":
+        return Point(
+            self.x - other.x,
+            self.y - other.y
+        )
+
     def distance(self, other: "Point") -> float:
         return math.sqrt(
             (self.x - other.x) ** 2 +
             (self.y - other.y) ** 2
+        )
+
+    def cp(self) -> "Point":
+        return Point(
+            self.x,
+            self.y
         )
 
 
