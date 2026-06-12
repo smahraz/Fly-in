@@ -1,6 +1,6 @@
 from typing import Iterable, Generator
 from queue import Queue
-from flyin import DataParser, Zone, Connection, Drone
+from flyin import DataParser, Zone, Drone
 
 
 class Engine:
@@ -22,12 +22,13 @@ class Engine:
                     visited.add(zone)
                     zone.deadend = True
                     if len(zone.connections) == 2:
-                        conn1, conn2 = zone.connections
-                        zn1 = self._get_other_zone(conn1, zone)
-                        zn2 = self._get_other_zone(conn2, zone)
-                        zone = zn1 if zn2 in visited else zn2
+                        zones2, zones1 = (
+                            set(con.zones) for con in zone.connections
+                        )
+                        zone, *_ = (zones1 ^ zones2) - visited
                     else:
-                        zone = self._get_other_zone(list(zone.connections)[0], zone)
+                        conn, *_ = zone.connections
+                        zone, *_ = set(conn.zones) - visited
 
     def find_all_paths(self) -> list[tuple[int, list[Zone]]]:
         paths: list[tuple[int, list[Zone]]] = []
@@ -105,7 +106,8 @@ class Engine:
         visited: set[Zone],
     ) -> None:
         for conn in current_zone.connections:
-            zone = self._get_other_zone(conn, current_zone)
+            zone = conn.zones[0] \
+                if conn.zones[1] == current_zone else conn.zones[1]
             if (
                 zone in visited
                 or zone.deadend
@@ -128,13 +130,9 @@ class Engine:
                     complete_paths, current_path_new, zone, visited_new
                 )
 
-    def _get_other_zone(self, conn: Connection, zone: Zone) -> Zone:
-        z1, z2 = conn.zones
-        return self._zones[z1 if z2 == zone.name else z2]
-
     @staticmethod
     def _path_cost(path: Iterable[Zone]) -> int:
-        def cost(zone: Zone):
+        def cost(zone: Zone) -> int:
             if zone.zone == Zone.ZoneType.RESTRICTED:
                 return 2
             return 1
