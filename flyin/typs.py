@@ -154,5 +154,14 @@ class Drone:
         new_location.add_drone()
         self.current_location.sub_drone()
 
+        if isinstance(new_location, Zone):
+            if new_location.zone is Zone.ZoneType.RESTRICTED:
+                self.current_location.add_drone()
+
         self.prev_location = self.current_location
         self.current_location = new_location
+
+    def clear_restricted_connection(self) -> None:
+        if isinstance(self.current_location, Zone):
+            if self.current_location.zone is Zone.ZoneType.RESTRICTED:
+                self.prev_location.sub_drone()

@@ -89,6 +89,8 @@ class Engine:
                         d.move_to(targets[d])
                         get_from_queue(d)
             turn += 1
+            for d in drones:
+                d.clear_restricted_connection()
             yield []
 
     def _find_all_paths(
@@ -136,5 +138,7 @@ if __name__ == "__main__":
     with open("maps/challenger/01_the_impossible_dream.txt", "r") as f:
         d = DataParser(f.read())
         e = Engine(d)
+        x = 0
         for i in e.simulation():
-            pass
+            x += 1
+        print(x)
