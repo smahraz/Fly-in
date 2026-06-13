@@ -89,7 +89,7 @@ class DrawDrone:
                 self.drone.current_location.pos
         )
 
-        if remaining < 1:
+        if remaining < 1.5:
             self.all_poses[self.drone] = self.drone.current_location.pos.cp()
             self._draw_drone()
             return True
