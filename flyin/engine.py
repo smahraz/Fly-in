@@ -3,33 +3,45 @@ from queue import Queue
 from flyin import DataParser, Zone, Drone
 from flyin.typs import Connection
 
+class Graph:
+    graph: dict[
+        Zone,
+        dict[Zone, int]
+    ]
+
+    def __init__(self) -> None:
+        self.graph = {}
+
+    def add_zone(self, zone: Zone, next_zone: Zone, cost: int) -> None:
+        if zone not in self.graph:
+            self.graph[zone] = {next_zone: cost}
+            return
+        old_cost = self.graph[zone].get(next_zone, float("inf"))
+        if cost < old_cost:
+            self.graph[zone][next_zone] = cost
+
+    @staticmethod
+    def from_path(paths: list[tuple[int, list[Zone]]]) -> "Graph":
+        graph = Graph()
+
+        def cost_(zone: Zone) -> int:
+            if zone.zone == Zone.ZoneType.RESTRICTED:
+                return 2
+            return 1
+        for cost, p in paths[:50]:
+            prev_zone = p[0]
+            for z in p[1:]:
+                cost -= cost_(prev_zone)
+                graph.add_zone(prev_zone, z, cost)
+                prev_zone = z
+
+        return graph
+
 
 class Engine:
     def __init__(self, parsing_data: DataParser) -> None:
         self._parsing_data = parsing_data
         self._zones = parsing_data.zones
-        self.mark_deadends()
-
-    def mark_deadends(self) -> None:
-        visited: set[Zone] = set()
-        for zone in self._zones.values():
-            if (
-                len(zone.connections) == 1
-                and zone is not self._parsing_data.end_hub
-                and zone is not self._parsing_data.start_hub
-                and zone not in visited
-            ):
-                while len(zone.connections) <= 2:
-                    visited.add(zone)
-                    zone.deadend = True
-                    if len(zone.connections) == 2:
-                        zones2, zones1 = (
-                            set(con.zones) for con in zone.connections
-                        )
-                        zone, *_ = (zones1 ^ zones2) - visited
-                    else:
-                        conn, *_ = zone.connections
-                        zone, *_ = set(conn.zones) - visited
 
     def find_all_paths(self) -> list[tuple[int, list[Zone]]]:
         paths: list[tuple[int, list[Zone]]] = []
@@ -141,4 +153,6 @@ if __name__ == "__main__":
         x = 0
         for i in e.simulation():
             x += 1
-        print(x)
+        g = Graph.from_path(e.find_all_paths())
+        from rich import print
+        print(g.graph)
