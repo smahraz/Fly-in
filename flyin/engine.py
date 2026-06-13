@@ -1,6 +1,6 @@
 from typing import Iterable, Generator
-from flyin import DataParser, Zone, Drone
-from flyin.typs import Connection
+from flyin import DataParser, Zone, Drone, Connection
+
 
 class Graph:
     graph: dict[
@@ -27,14 +27,10 @@ class Graph:
     def from_path(paths: list[tuple[int, list[Zone]]]) -> "Graph":
         graph = Graph()
 
-        def cost_(zone: Zone) -> int:
-            if zone.zone == Zone.ZoneType.RESTRICTED:
-                return 2
-            return 1
         for cost, p in paths[:50]:
             prev_zone = p[0]
             for z in p[1:]:
-                cost -= cost_(prev_zone)
+                cost -= prev_zone.cost()
                 graph.add_zone(prev_zone, z, cost)
                 prev_zone = z
 
@@ -113,8 +109,7 @@ class Engine:
         visited: set[Zone],
     ) -> None:
         for conn in current_zone.connections:
-            zone = conn.zones[0] \
-                if conn.zones[1] == current_zone else conn.zones[1]
+            zone, *_ = (z for z in conn.zones if z != current_zone)
             if (
                 zone in visited
                 or zone.deadend
@@ -139,11 +134,7 @@ class Engine:
 
     @staticmethod
     def _path_cost(path: Iterable[Zone]) -> int:
-        def cost(zone: Zone) -> int:
-            if zone.zone == Zone.ZoneType.RESTRICTED:
-                return 2
-            return 1
-        return sum(cost(z) for z in path)
+        return sum(z.cost() for z in path)
 
 
 if __name__ == "__main__":

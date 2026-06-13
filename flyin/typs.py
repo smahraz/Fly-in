@@ -1,5 +1,6 @@
 from enum import IntEnum, auto
 import math
+from typing import Literal
 
 
 WHITE = (0xff, 0xff, 0xff, 0xff)
@@ -85,8 +86,11 @@ class Connection(Location):
 
         self.drone_count = 0
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"Connection('{', '.join(z.name for z in self.zones)}')"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class Zone(Location):
@@ -132,8 +136,16 @@ class Zone(Location):
     def __str__(self) -> str:
         return f"Zone({self.name}: {self.pos.x},{self.pos.y})"
 
+    def __repr__(self) -> str:
+        return self.__str__()
+
     def add_connection(self, connection: Connection) -> None:
         self.connections.add(connection)
+
+    def cost(self) -> Literal[1, 2]:
+        if self.zone == self.ZoneType.RESTRICTED:
+            return 2
+        return 1
 
 
 class Drone:
