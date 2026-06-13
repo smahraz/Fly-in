@@ -1,6 +1,7 @@
 from enum import IntEnum, auto
-import math
 from typing import Literal
+from random import randint
+import math
 
 
 WHITE = (0xff, 0xff, 0xff, 0xff)
@@ -161,6 +162,25 @@ class Drone:
         self.prev_location = start_hub
         start_hub.add_drone()
         self.moving_to_restricted = False
+
+        self._color = "\x1b[38;2;{};{};{}m".format(
+            randint(20, 255),
+            randint(20, 255),
+            randint(20, 255)
+        )
+
+    def __str__(self) -> str:
+        if isinstance(self.current_location, Connection):
+            z1, z2 = self.current_location.zones
+            return (
+                f"{self._color}D{self.drone_id}-{z1.name}-{z2.name}"
+                "\x1b[0m"
+            )
+        assert isinstance(self.current_location, Zone)
+        return (
+            f"{self._color}D{self.drone_id}-{self.current_location.name}"
+            "\x1b[0m"
+        )
 
     def move_to(self, new_location: Location) -> None:
         new_location.add_drone()

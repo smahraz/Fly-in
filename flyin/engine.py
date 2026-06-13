@@ -72,6 +72,7 @@ class Engine:
 
         turn = 0
         while not self._parsing_data.end_hub.is_full():
+            moved: list[Drone] = []
             for d in drones:
 
                 if d.current_location is self._parsing_data.end_hub:
@@ -80,6 +81,7 @@ class Engine:
                 if isinstance(d.current_location, Connection):
                     if not cur_zone[d].is_full():
                         d.move_to(cur_zone[d])
+                        moved.append(d)
                     continue
 
                 min_cost, next_zones = graph.get_next_target(cur_zone[d])
@@ -89,17 +91,19 @@ class Engine:
                         if not cn.is_full() and cost <= min_cost + 1:
                             cur_zone[d] = nxt_zone
                             d.move_to(cn)
+                            moved.append(d)
                             break
                     else:
                         if not nxt_zone.is_full() and cost <= min_cost + 1:
                             cur_zone[d] = nxt_zone
                             d.move_to(nxt_zone)
+                            moved.append(d)
                             break
 
             turn += 1
             for d in drones:
                 d.clear_restricted_connection()
-            yield []
+            yield moved
 
     def _find_all_paths(
         self,

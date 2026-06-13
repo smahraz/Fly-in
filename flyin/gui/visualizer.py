@@ -155,7 +155,7 @@ class Visualizer:
             if self._draw_drones():
                 if pause_time > PAUSE_TIME:
                     pause_time = 0
-                    next(self.simulation)
+                    print(" ".join(str(d) for d in next(self.simulation)))
                 else:
                     pause_time += rl.GetFrameTime()
             rl.EndMode2D()
