@@ -1,5 +1,4 @@
 from typing import Iterable, Generator
-from queue import Queue
 from flyin import DataParser, Zone, Drone
 from flyin.typs import Connection
 
@@ -19,6 +18,10 @@ class Graph:
         old_cost = self.graph[zone].get(next_zone, float("inf"))
         if cost < old_cost:
             self.graph[zone][next_zone] = cost
+
+    def get_next_target(self, current_zone: Zone) -> tuple[int, dict[Zone, int]]:
+        next_zones = self.graph[current_zone]
+        return min(next_zones.values()), next_zones
 
     @staticmethod
     def from_path(paths: list[tuple[int, list[Zone]]]) -> "Graph":
@@ -59,47 +62,44 @@ class Engine:
         )
 
     def simulation(self) -> Generator[list[Drone], None, None]:
-        def path_to_queue(path: tuple[int, list[Zone]]) -> Queue[Zone]:
-            q: Queue[Zone] = Queue()
-            for zone in path[1][1:]:
-                q.put(zone)
-            return q
-
-        def get_from_queue(drone: Drone) -> None:
-            if targets[drone] != self._parsing_data.end_hub:
-                targets[drone] = paths[drone].get()
-
-        path = self.find_all_paths()[0]
         drone_nb = self._parsing_data.number_of_drones
         drones = [Drone(self._parsing_data.start_hub) for _ in range(drone_nb)]
 
         yield drones
 
-        paths = {
-            d: path_to_queue(path)
-            for d in drones
-        }
-        targets = {
-            d: paths[d].get()
+        graph = Graph.from_path(self.find_all_paths())
+
+        cur_zone: dict[Drone, Zone] = {
+            d: self._parsing_data.start_hub
             for d in drones
         }
 
         turn = 0
         while not self._parsing_data.end_hub.is_full():
             for d in drones:
-                if targets[d].zone is Zone.ZoneType.RESTRICTED:
-                    if isinstance(d.current_location, Connection):
-                        if not targets[d].is_full():
-                            d.move_to(targets[d])
-                            get_from_queue(d)
-                    elif isinstance(d.current_location, Zone):
-                        conn, *_ = targets[d].connections & d.current_location.connections
-                        if not conn.is_full():
-                            d.move_to(conn)
-                else:
-                    if not targets[d].is_full():
-                        d.move_to(targets[d])
-                        get_from_queue(d)
+
+                if d.current_location is self._parsing_data.end_hub:
+                    continue
+
+                if isinstance(d.current_location, Connection):
+                    if not cur_zone[d].is_full():
+                        d.move_to(cur_zone[d])
+                    continue
+
+                min_cost, next_zones = graph.get_next_target(cur_zone[d])
+                for nxt_zone, cost in next_zones.items():
+                    if nxt_zone.zone is Zone.ZoneType.RESTRICTED:
+                        cn, *_ = cur_zone[d].connections & nxt_zone.connections
+                        if not cn.is_full() and cost <= min_cost + 1:
+                            cur_zone[d] = nxt_zone
+                            d.move_to(cn)
+                            break
+                    else:
+                        if not nxt_zone.is_full() and cost <= min_cost + 1:
+                            cur_zone[d] = nxt_zone
+                            d.move_to(nxt_zone)
+                            break
+
             turn += 1
             for d in drones:
                 d.clear_restricted_connection()
