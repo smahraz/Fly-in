@@ -1,5 +1,6 @@
 from typing import Iterable, Generator
 from flyin import DataParser, Zone, Drone, Connection
+from .exceptions import MapError
 
 
 class Graph:
@@ -52,6 +53,10 @@ class Engine:
             self._parsing_data.start_hub,
             {self._parsing_data.start_hub},
         )
+        if not paths:
+            raise MapError(
+                "there is no path between end_hub and start_hub"
+            )
         return sorted(
             paths,
             key=lambda tpl: tpl[0]

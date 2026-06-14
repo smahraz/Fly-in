@@ -5,3 +5,7 @@ class ParseError(Exception):
         self.line_number = line_number
         self.msg = msg
         super().__init__(f"{line_number}: {msg}")
+
+
+class MapError(Exception):
+    pass
