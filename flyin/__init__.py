@@ -3,8 +3,9 @@ from .color import colors
 from .parser import DataParser
 from .engine import Engine
 from .gui import Visualizer
-from raylib import SetTargetFPS
+from raylib import SetTargetFPS, SetTraceLogLevel, LOG_NONE
 
+SetTraceLogLevel(LOG_NONE)
 SetTargetFPS(60)
 
 __all__ = (
