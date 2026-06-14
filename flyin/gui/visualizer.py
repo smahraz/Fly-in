@@ -2,6 +2,7 @@ import raylib as rl
 from flyin import Zone, DataParser, Point, Drone
 from flyin.parser import SCALE
 from flyin import Engine
+from flyin.typs import WHITE
 
 BG_COLOR = (0x66, 0x33, 0x99, 0xff)
 
@@ -49,10 +50,39 @@ class DrawInfo:
 
 class DrawButtons:
     def __init__(self, pause_simulation: bool) -> None:
+        self.space_button = rl.LoadTexture(b"assets/space.png")
+        self.r_button = rl.LoadTexture(b"assets/r.png")
+        self.enter_button = rl.LoadTexture(b"assets/enter.png")
         self.pause_simulation = pause_simulation
+        self.x = 5
+        self.y = HEIGHT - 24
 
     def draw(self) -> None:
-        pass
+        self._draw_button(
+            self.space_button,
+            "Start" if self.pause_simulation else "Pause",
+        )
+        self._draw_button(self.r_button, "Reset")
+        self._draw_button(self.enter_button, "Skip")
+
+    def _draw_button(self, texture, text: str) -> None:
+        rl.DrawTextureEx(
+            texture,
+            (self.x, self.y),
+            0,
+            0.5,
+            rl.WHITE
+        )
+        rl.DrawText(
+            text.encode(),
+            self.x + int(texture.width * 0.5) + 5,
+            self.y,
+            texture.height // 2,
+            WHITE,
+        )
+        self.x += rl.MeasureText(text.encode(), texture.height // 2) + 20
+        self.x += texture.width // 2
+
 
 
 class DrawDrone:
@@ -164,6 +194,7 @@ class Visualizer:
                     pause_time += rl.GetFrameTime()
             rl.EndMode2D()
             DrawInfo(self.parsing_data, self.turn, self._camera.zoom).draw()
+            DrawButtons(self.pause_simulation).draw()
             rl.EndDrawing()
 
     def check_keyinputs(self) -> None:
