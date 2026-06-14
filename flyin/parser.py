@@ -72,7 +72,7 @@ class DataParser:
 
             zone = Zone(
                 z_name,
-                Point(x, y) * SCALE,
+                Point(x, y * -1) * SCALE,
                 **extracted_metadata
             )
             if hub_type in {"start_hub", "end_hub"}:
