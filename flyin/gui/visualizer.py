@@ -137,15 +137,15 @@ class Visualizer:
 
     def loop(self) -> None:
         pause_time = 0.0
-        turn = 0
+        self.turn = 0
         while not rl.WindowShouldClose():
             wheel = rl.GetMouseWheelMove()
             if wheel:
                 self._mouse_wheel(wheel)
             if rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT):
                 self._mouse_drag()
-            if rl.IsKeyPressed(rl.KEY_SPACE):
-                self.pause_simulation = not self.pause_simulation
+
+            self.check_keyinputs()
 
             rl.ClearBackground(BG_COLOR)
             rl.BeginDrawing()
@@ -157,14 +157,26 @@ class Visualizer:
                     pause_time = 0
                     try:
                         print(" ".join(str(d) for d in next(self.simulation)))
-                        turn += 1
+                        self.turn += 1
                     except StopIteration:
                         self.pause_simulation = True
                 else:
                     pause_time += rl.GetFrameTime()
             rl.EndMode2D()
-            DrawInfo(self.parsing_data, turn, self._camera.zoom).draw()
+            DrawInfo(self.parsing_data, self.turn, self._camera.zoom).draw()
             rl.EndDrawing()
+
+    def check_keyinputs(self) -> None:
+        if rl.IsKeyPressed(rl.KEY_SPACE):
+            self.pause_simulation = not self.pause_simulation
+        if rl.IsKeyPressed(rl.KEY_R):
+            self.pause_simulation = False
+            self.simulation = Engine(self.parsing_data).simulation()
+            for z in self.parsing_data.zones.values():
+                z.drone_count = 0
+            Drone.drone_id = 0
+            self.drones = next(self.simulation)
+            self.turn = 0
 
     def _draw_drones(self) -> bool:
         next_ = True
