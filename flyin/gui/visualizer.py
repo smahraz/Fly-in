@@ -177,6 +177,15 @@ class Visualizer:
             Drone.drone_id = 0
             self.drones = next(self.simulation)
             self.turn = 0
+        if rl.IsKeyPressed(rl.KEY_ENTER):
+            turn = 0
+            for moves in self.simulation:
+                turn += 1
+                print(" ".join(str(d) for d in moves))
+            DrawDrone.all_poses = {}
+            self.turn += turn
+            for d in self.drones:
+                d.prev_location = d.current_location
 
     def _draw_drones(self) -> bool:
         next_ = True
