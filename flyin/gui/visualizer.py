@@ -47,14 +47,23 @@ class DrawInfo:
         self.y += 20
 
 
+class DrawButtons:
+    def __init__(self, pause_simulation: bool) -> None:
+        self.pause_simulation = pause_simulation
+
+    def draw(self) -> None:
+        pass
+
+
 class DrawDrone:
     TRAVEL_TIME = 1
 
     all_poses: dict[Drone, Point] = {}
 
-    def __init__(self, drone: Drone, dt: float) -> None:
+    def __init__(self, drone: Drone, dt: float, no_animation: bool) -> None:
         self.drone = drone
         self.dt = dt
+        self.no_animation = no_animation
 
     def draw(self) -> bool:
         v = self.speed(self.drone)
@@ -65,6 +74,10 @@ class DrawDrone:
 
         if self.drone not in self.all_poses:
             self.all_poses[self.drone] = self.drone.prev_location.pos.cp()
+            self._draw_drone()
+            return False
+
+        if self.no_animation:
             self._draw_drone()
             return False
 
@@ -114,6 +127,7 @@ class Visualizer:
         self.simulation = Engine(parsing_data).simulation()
         self.drones = next(self.simulation)
         self._init_camera()
+        self.pause_simulation = False
 
     @classmethod
     def start(cls, parsing_data: DataParser) -> None:
@@ -130,6 +144,8 @@ class Visualizer:
                 self._mouse_wheel(wheel)
             if rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT):
                 self._mouse_drag()
+            if rl.IsKeyPressed(rl.KEY_SPACE):
+                self.pause_simulation = not self.pause_simulation
 
             rl.ClearBackground(BG_COLOR)
             rl.BeginDrawing()
@@ -139,8 +155,11 @@ class Visualizer:
             if self._draw_drones():
                 if pause_time > PAUSE_TIME:
                     pause_time = 0
-                    turn += 1
-                    print(" ".join(str(d) for d in next(self.simulation)))
+                    try:
+                        print(" ".join(str(d) for d in next(self.simulation)))
+                        turn += 1
+                    except StopIteration:
+                        self.pause_simulation = True
                 else:
                     pause_time += rl.GetFrameTime()
             rl.EndMode2D()
@@ -151,7 +170,9 @@ class Visualizer:
         next_ = True
         dt = rl.GetFrameTime()
         for d in self.drones:
-            next_ &= DrawDrone(d, dt).draw()
+            next_ &= DrawDrone(d, dt, self.pause_simulation).draw()
+        if self.pause_simulation:
+            return False
         return next_
 
     def _draw_zones(self) -> None:
