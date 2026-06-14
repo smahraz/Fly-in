@@ -169,6 +169,9 @@ class Drone:
             randint(20, 255)
         )
 
+        # to sub_drone only one time from restricted connection.
+        self.clear_path = False
+
     def __str__(self) -> str:
         if isinstance(self.current_location, Connection):
             z1, z2 = self.current_location.zones
@@ -189,11 +192,14 @@ class Drone:
         if isinstance(new_location, Zone):
             if new_location.zone is Zone.ZoneType.RESTRICTED:
                 self.current_location.add_drone()
+                self.clear_path = True
 
         self.prev_location = self.current_location
         self.current_location = new_location
 
     def clear_restricted_connection(self) -> None:
         if isinstance(self.current_location, Zone):
-            if self.current_location.zone is Zone.ZoneType.RESTRICTED:
+            if self.current_location.zone is Zone.ZoneType.RESTRICTED\
+                    and self.clear_path:
                 self.prev_location.sub_drone()
+                self.clear_path = False
