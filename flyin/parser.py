@@ -1,14 +1,9 @@
 import re
 from typing import Any
 from flyin import Zone, Connection, colors, Point
+from .exceptions import ParseError
 
 SCALE = 150
-
-class ParseError(Exception):
-    def __init__(self, line_number: int, msg: str) -> None:
-        self.line_number = line_number
-        self.msg = msg
-        super().__init__(f"{line_number}: {msg}")
 
 
 class DataParser:
@@ -23,7 +18,8 @@ class DataParser:
         ALLOWED_METADATA_KEYS = {"zone", "color", "max_drones"}
         ZONE_TYPE = {"normal", "blocked", "restricted", "priority"}
 
-        def __init__(self) -> None:
+        def __init__(self, nb_drones) -> None:
+            self.nb_drones = nb_drones
             self._coordinate = set()
             self._created_zones = set()
             self.start_hub = None
@@ -34,6 +30,22 @@ class DataParser:
             line_num: int,
             line: str
         ) -> Zone:
+            def check_hub() -> None:
+                if extracted_metadata.get("max_drones", self.nb_drones) \
+                        < self.nb_drones:
+                    raise ParseError(
+                        line_num,
+                        f"(metadata) {hub_type}"
+                        " can't have lease than nb_drones"
+                    )
+                n_drones = extracted_metadata.get("max_drones", self.nb_drones)
+                assert type(n_drones) is int
+                zone.max_drones = n_drones
+                if hub_type == "start_hub":
+                    self.start_hub = zone
+                else:
+                    self.end_hub = zone
+
             zone_str, *metadata = line.split("[")
             params = [ln for ln in zone_str.split() if ln]
 
@@ -63,11 +75,8 @@ class DataParser:
                 Point(x, y) * SCALE,
                 **extracted_metadata
             )
-            match hub_type:
-                case "start_hub":
-                    self.start_hub = zone
-                case "end_hub":
-                    self.end_hub = zone
+            if hub_type in {"start_hub", "end_hub"}:
+                check_hub()
             return zone
 
         @staticmethod
@@ -246,7 +255,7 @@ class DataParser:
 
     def _extract_zones_and_conections(self) -> None:
         # these two `sets` below, is only for caching
-        zp = self.ZoneParser()
+        zp = self.ZoneParser(self.number_of_drones)
         cp = self.ConnectionParser(self.zones)
 
         for line_num, line in self.lines:

@@ -71,7 +71,8 @@ class Engine:
         }
 
         turn = 0
-        while not self._parsing_data.end_hub.is_full():
+        end_hub = self._parsing_data.end_hub
+        while not end_hub.drone_count == self._parsing_data.number_of_drones:
             moved: list[Drone] = []
             for d in drones:
 
