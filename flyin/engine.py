@@ -1,4 +1,5 @@
 from typing import Iterable, Generator
+from functools import cmp_to_key
 from flyin import DataParser, Zone, Drone, Connection
 from .exceptions import MapError
 
@@ -43,6 +44,25 @@ class Engine:
         self._parsing_data = parsing_data
         self._zones = parsing_data.zones
 
+    @staticmethod
+    def cmp_paths(
+        path_a: tuple[int, list[Zone]],
+        path_b: tuple[int, list[Zone]],
+    ) -> int:
+        T = Zone.ZoneType.PRIORITY
+        if path_a[0] != path_b[0]:
+            return path_a[0] - path_b[0]
+        for i in range(min(len(path_a[1]), len(path_b[1]))):
+            z1, z2 = path_a[1][i], path_b[1][i]
+            if (
+                (z1.zone is T and z2.zone is not T)
+                or (z1.zone is not T and z2.zone is T)
+            ):
+                if z1.zone is T:
+                    return -1
+                return 1
+        return 0
+
     def find_all_paths(self) -> list[tuple[int, list[Zone]]]:
         paths: list[tuple[int, list[Zone]]] = []
         self._find_all_paths(
@@ -59,7 +79,7 @@ class Engine:
             )
         return sorted(
             paths,
-            key=lambda tpl: tpl[0]
+            key=cmp_to_key(self.cmp_paths)
         )
 
     def simulation(self) -> Generator[list[Drone], None, None]:
@@ -148,7 +168,7 @@ class Engine:
 
 
 if __name__ == "__main__":
-    with open("maps/challenger/01_the_impossible_dream.txt", "r") as f:
+    with open("maps/hard/02_capacity_hell.txt", "r") as f:
         d = DataParser(f.read())
         e = Engine(d)
         x = 0
