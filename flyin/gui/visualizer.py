@@ -4,7 +4,7 @@ from flyin.parser import SCALE
 from flyin import Engine
 from flyin.typs import WHITE
 
-BG_COLOR = (0x66, 0x33, 0x99, 0xff)
+BG_COLOR = rl.GRAY
 
 WIDTH = 1200
 HEIGHT = 800
@@ -82,7 +82,6 @@ class DrawButtons:
         )
         self.x += rl.MeasureText(text.encode(), texture.height // 2) + 20
         self.x += texture.width // 2
-
 
 
 class DrawDrone:
@@ -251,6 +250,13 @@ class Visualizer:
                 *zone.pos.as_tuple(),
                 ZONE_RADIUS - mergin,
                 zone.color
+            )
+            rl.DrawText(
+                f"[{zone.drone_count}/{zone.max_drones}]".encode(),
+                int(zone.pos.x + ZONE_RADIUS / 2),
+                int(zone.pos.y + ZONE_RADIUS / 2),
+                FONT_SIZE - 2,
+                rl.WHITE,
             )
 
             font_width = rl.MeasureText(zone.name.encode(), FONT_SIZE)
