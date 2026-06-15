@@ -4,9 +4,6 @@ from random import randint
 import math
 
 
-WHITE = (0xff, 0xff, 0xff, 0xff)
-
-
 class Point:
     x: float
     y: float
@@ -117,7 +114,12 @@ class Zone(Location):
         pos: Point,
         zone: str = "normal",
         max_drones: int = 1,
-        color: tuple[int, int, int, int] = WHITE
+        color: tuple[int, int, int, int] = (
+            0xcd,
+            0x7f,
+            0x32,
+            0xff
+        )
     ) -> None:
         self.name = name
 

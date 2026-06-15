@@ -21,7 +21,10 @@ class Graph:
         if cost < old_cost:
             self.graph[zone][next_zone] = cost
 
-    def get_next_target(self, current_zone: Zone) -> tuple[int, dict[Zone, int]]:
+    def get_next_target(self, current_zone: Zone) -> tuple[
+        int,
+        dict[Zone, int]
+    ]:
         next_zones = self.graph[current_zone]
         return min(next_zones.values()), next_zones
 

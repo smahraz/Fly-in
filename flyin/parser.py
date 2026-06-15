@@ -1,7 +1,8 @@
 import re
 from typing import Any
-from flyin import Zone, Connection, colors, Point
+from flyin import Zone, Connection, Point
 from .exceptions import ParseError
+from .colors import colors
 
 SCALE = 150
 
@@ -18,7 +19,7 @@ class DataParser:
         ALLOWED_METADATA_KEYS = {"zone", "color", "max_drones"}
         ZONE_TYPE = {"normal", "blocked", "restricted", "priority"}
 
-        def __init__(self, nb_drones) -> None:
+        def __init__(self, nb_drones: int) -> None:
             self.nb_drones = nb_drones
             self._coordinate = set()
             self._created_zones = set()

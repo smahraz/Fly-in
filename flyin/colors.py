@@ -1,4 +1,5 @@
 
+
 colors: dict[str, tuple[int, int, int, int]] = {
     "aliceblue": (0xF0, 0xF8, 0xFF, 0xFF),
     "antiquewhite": (0xFA, 0xEB, 0xD7, 0xFF),
