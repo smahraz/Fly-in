@@ -122,7 +122,15 @@ class Engine:
                 for nxt_zone, cost in next_zones.items():
                     if nxt_zone.zone is Zone.ZoneType.RESTRICTED:
                         cn, *_ = cur_zone[d].connections & nxt_zone.connections
-                        if not cn.is_full() and cost <= min_cost + 1:
+                        if (
+                            not cn.is_full()
+                            and cost <= min_cost + 1
+                            # dont move if drones in connection will fill zone
+                            and nxt_zone.max_drones - cn.drone_count
+                            # dont move if zone is full
+                            # maybe the drone wont move the next turn.
+                            and not nxt_zone.is_full()
+                        ):
                             cur_zone[d] = nxt_zone
                             d.move_to(cn)
                             moved.append(d)
