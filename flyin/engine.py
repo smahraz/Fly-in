@@ -136,7 +136,11 @@ class Engine:
                             moved.append(d)
                             break
                     else:
-                        if not nxt_zone.is_full() and cost <= min_cost + 1:
+                        drone_left = max(
+                            self._parsing_data.start_hub.drone_count - 1, 1
+                        )
+                        if not nxt_zone.is_full() \
+                                and cost <= min_cost + drone_left:
                             cur_zone[d] = nxt_zone
                             d.move_to(nxt_zone)
                             moved.append(d)
