@@ -98,6 +98,11 @@ class Engine:
             for d in drones
         }
 
+        # in case of reset
+        for zone in self._zones.values():
+            for conn in zone.connections:
+                conn.drone_count = 0
+
         turn = 0
         end_hub = self._parsing_data.end_hub
         while not end_hub.drone_count == self._parsing_data.number_of_drones:
