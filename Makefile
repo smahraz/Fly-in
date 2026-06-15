@@ -1,7 +1,7 @@
-
+PY="python3"
 
 run:
-	$(error "Not Implemented Error")
+	uv run -m flyin maps/hard/02_capacity_hell.txt
 
 
 install:
@@ -9,15 +9,17 @@ install:
 
 
 debug:
-	$(error "Not Implemented Error")
+	$(PY) -m pdb -m flyin
+	
 
 
 clean:
 	@rm -rfv $(find . -type d -name "__pycache__")
+	@rm -rfv .mypy_cache/
 
 
 lint:
-	@flake8 .
+	@flake8 . --exclude .venv,venv
 	@mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 

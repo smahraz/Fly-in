@@ -1,11 +1,11 @@
-from flyin import Visualizer
-from flyin import DataParser
+from flyin import Visualizer, DataParser
+from sys import argv
 
 
-MAP_PATH = "maps/challenger/01_the_impossible_dream.txt"
+map_path = argv[1]
 
 
-with open(MAP_PATH, "r") as mp_file:
+with open(map_path, "r") as mp_file:
     dp = DataParser(mp_file.read())
 
 Visualizer.start(dp)
