@@ -1,0 +1,16 @@
+
+nb_drones: 6
+
+
+start_hub: start 0 0 [color=palegreen]
+hub: waiting_point1 1 -1 [color=crimson zone=restricted]
+hub: waiting_point2 1 1 [color=crimson zone=restricted]
+hub: bottle_neck 2 0 [color=yellow]
+end_hub: target 3 0 [color=lightskyblue]
+
+
+connection: start-waiting_point1 [max_link_capacity=2]
+connection: start-waiting_point2 [max_link_capacity=2]
+connection: bottle_neck-waiting_point1
+connection: bottle_neck-waiting_point2
+connection: bottle_neck-target
