@@ -232,6 +232,11 @@ class DataParser:
             for z_name in zones2connect:
                 if z_name not in self._zones:
                     raise ParseError(ln, f"'{z_name}', zone is not defined")
+            if zones2connect[0] == zones2connect[1]:
+                raise ParseError(
+                    ln,
+                    "cant connect to itself"
+                )
             return zones2connect
 
         def _cache_connection(self, zone1: str, zone2: str) -> None:
