@@ -146,12 +146,15 @@ class DrawDrone:
     def _draw_drone(self) -> None:
         rl.DrawCircle(
             *self.all_poses[self.drone].as_tuple(),
-            25.0,
+            30.0,
             rl.WHITE
         )
+        x, y = self.all_poses[self.drone].as_tuple()
+        text_width = rl.MeasureText(f"{self.drone.drone_id}".encode(), 50)
         rl.DrawText(
             f"{self.drone.drone_id}".encode(),
-            *self.all_poses[self.drone].as_tuple(),
+            x - text_width // 2,
+            y - 22,
             50,
             rl.BLACK
         )
