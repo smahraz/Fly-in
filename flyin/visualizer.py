@@ -103,6 +103,10 @@ class DrawDrone:
         self.no_animation = no_animation
 
     def draw(self) -> bool:
+        if self.no_animation:
+            self._draw_drone()
+            return False
+
         v = self.speed(self.drone)
         if v == 0:
             self.all_poses[self.drone] = self.drone.prev_location.pos.cp()
@@ -111,10 +115,6 @@ class DrawDrone:
 
         if self.drone not in self.all_poses:
             self.all_poses[self.drone] = self.drone.prev_location.pos.cp()
-            self._draw_drone()
-            return False
-
-        if self.no_animation:
             self._draw_drone()
             return False
 
@@ -133,6 +133,12 @@ class DrawDrone:
 
         pos.x += (delta.x / remaining) * v * self.dt
         pos.y += (delta.y / remaining) * v * self.dt
+
+        # quick fix: if drone surpasses the destination, set it in the destination and end animation.
+        if pos.distance(self.drone.prev_location.pos) > self.drone.current_location.pos.distance(self.drone.prev_location.pos):
+            self.all_poses[self.drone] = self.drone.current_location.pos.cp()
+            self._draw_drone()
+            return True
 
         self._draw_drone()
 
