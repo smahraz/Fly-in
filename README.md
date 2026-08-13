@@ -1,7 +1,8 @@
-The very first line must be italicized and read: This project has been created as part of the 42 curriculum by `smahraz`
+This project has been created as part of the 42 curriculum by `smahraz`
 
 ## Description:
 The objectives of this project are multiple, but the main focus is on path finding and synchronizing drones to achieve the most efficient movement, minimizing the number of turns as much as possible.
+This algorithm was created entirely by me. It works by dynamically choosing the next zone based on the available paths and traffic congestion. I also used a generator so that I wouldn’t have to load everything into memory.
 
 ## Visualization:
 - i used [raylib](https://www.raylib.com) for visualization.
@@ -36,6 +37,22 @@ uv sync
 - doc string
 
 ## Approach:
+Working with multiple paths was simple. The question is whether it is worth taking the longest path and leaving room for the other drones.
+
+The idea is to compare the cost of the available path with the cost of the shortest path plus the number of drones that would take it:
+
+$$
+C_{\text{shortest}} + \max(1, D_{\text{start}} - 1) \geq C_{\text{available}}
+$$
+
+If this condition is satisfied, taking the available path is worthwhile. The drone taking the longest path should arrive at roughly the same time as the last drone taking the shortest path:
+
+$$
+C_{\text{longest}} \approx C_{\text{shortest}} + (D_{\text{start}} - 1)
+$$
+
+where C is the path cost and Dstart is the number of drones at the starting hub.
+
 ```mermaid
 flowchart TD
     Start([Start])
