@@ -163,7 +163,6 @@ class Drone:
         self.current_location = start_hub
         self.prev_location = start_hub
         start_hub.add_drone()
-        self.moving_to_restricted = False
 
         self._color = "\x1b[38;2;{};{};{}m".format(
             randint(20, 255),
@@ -194,14 +193,23 @@ class Drone:
         if isinstance(new_location, Zone):
             if new_location.zone is Zone.ZoneType.RESTRICTED:
                 self.current_location.add_drone()
-                self.clear_path = True
+            else:
+                assert isinstance(self.current_location, Zone) # for mypy check, and debug.
+                conn, *_ =  self.current_location.connections & new_location.connections
+                conn.add_drone()
 
         self.prev_location = self.current_location
         self.current_location = new_location
 
+
     def clear_restricted_connection(self) -> None:
+        if self.current_location is self.prev_location:
+            return
         if isinstance(self.current_location, Zone):
-            if self.current_location.zone is Zone.ZoneType.RESTRICTED\
-                    and self.clear_path:
+            if self.current_location.zone is Zone.ZoneType.RESTRICTED:
                 self.prev_location.sub_drone()
-                self.clear_path = False
+            else:
+                assert isinstance(self.prev_location, Zone) # for mypy check, and debug.
+                conn, *_ =  self.current_location.connections & self.prev_location.connections
+                conn.sub_drone()
+

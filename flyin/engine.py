@@ -139,7 +139,10 @@ class Engine:
                         drone_left = max(
                             self._parsing_data.start_hub.drone_count - 1, 1
                         )
-                        if not nxt_zone.is_full() \
+                        assert isinstance(d.current_location, Zone)
+                        conn, *_ = d.current_location.connections & nxt_zone.connections
+                        if not nxt_zone.is_full()\
+                                and not conn.is_full()\
                                 and cost <= min_cost + drone_left:
                             cur_zone[d] = nxt_zone
                             d.move_to(nxt_zone)
@@ -147,7 +150,7 @@ class Engine:
                             break
 
             turn += 1
-            for d in drones:
+            for d in moved:
                 d.clear_restricted_connection()
             yield moved
 
