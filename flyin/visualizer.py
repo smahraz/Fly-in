@@ -93,7 +93,7 @@ class DrawButtons:
 
 
 class DrawDrone:
-    TRAVEL_TIME = 1
+    TRAVEL_TIME = 0.4
 
     all_poses: dict[Drone, Point] = {}
 
